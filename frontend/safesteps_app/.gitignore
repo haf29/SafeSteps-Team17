@@ -1,0 +1,21 @@
+# Flutter/Dart/Pub related
+.dart_tool/
+.packages
+.pub-cache/
+build/
+# IDEs
+.idea/
+.vscode/
+# Flutter environment
+.env
+# iOS/Android build
+ios/Flutter/Flutter.podspec
+ios/Pods/
+ios/Runner.xcworkspace/
+ios/Flutter/ephemeral/
+macos/Flutter/ephemeral/
+android/.gradle/
+android/app/build/
+# Misc
+*.iml
+*.lock 
