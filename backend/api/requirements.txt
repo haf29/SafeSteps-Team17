@@ -1,0 +1,6 @@
+datetime
+typing
+pydantic 
+os 
+boto3
+fastapi
