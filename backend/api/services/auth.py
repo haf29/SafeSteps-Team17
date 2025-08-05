@@ -4,7 +4,7 @@ import boto3
 from botocore.exceptions import ClientError
 from fastapi import HTTPException,status 
 
-from app.models.user import UserSignUp, UserSignIn, UserToken
+from api.models.user import UserSignUp, UserSignIn, UserToken
 
 USER_POOL_ID = os.getenv("COGNITO_USER_POOL_ID")
 CLIENT_ID = os.getenv("COGNITO_APP_CLIENT_ID")

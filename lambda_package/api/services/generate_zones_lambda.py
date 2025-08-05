@@ -24,6 +24,8 @@ def put_zones(zone_ids: List[str])-> int:
                 }
             )
     return len(zone_ids)
+#heart of the lambda function
+#every time AWS invokes lambda. this functions runs
 def lambda_handler(event, context):
     try:
         poly = event["polygon"]
