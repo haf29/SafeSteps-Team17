@@ -11,7 +11,7 @@ def lonlat_to_latlon(coords: List[Tuple[float, float]]) -> List[Tuple[float, flo
 
     return [(lat, lon) for lon, lat in coords]
 
-
+#main function called by lambda function
 def generate_zone_ids(polygon: Dict[str, Any], resolution: int = 9) -> List[str]:
     if polygon["type"] != "Polygon":
         raise ValueError("Only GeoJSON polygons are supported")
