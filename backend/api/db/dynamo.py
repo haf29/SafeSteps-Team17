@@ -4,7 +4,8 @@ from boto3.dynamodb.conditions import Key, Attr
 from datetime import datetime
 from decimal import Decimal
 from typing import List
-
+import uuid 
+ 
 REGION = os.getenv("AWS_REGION", "us-east-1")
 ZONES_TABLE = os.getenv("ZONES_TABLE", "zones")
 INCIDENTS_TABLE = os.getenv("INCIDENTS_TABLE", "incidents")
@@ -13,6 +14,7 @@ ZONES_CITY_INDEX = os.getenv("ZONES_CITY_INDEX", "city-index")
 dynamodb = boto3.resource("dynamodb", region_name=REGION)
 zones_table = dynamodb.Table(ZONES_TABLE)
 incidents_table = dynamodb.Table(INCIDENTS_TABLE)
+
 
 def get_zones_by_city(city_name: str) -> List[str]:
     """
@@ -58,6 +60,25 @@ def put_zones(zone_ids: List[str], city: str) -> int:
                 }
             )
     return len(zone_ids)
+
+def add_incident(zone_id, incident_type, timestamp, city, reported_by):
+    try:
+        incidents_table.put_item(
+            Item={
+                "zone_id": zone_id,
+                "timestamp": timestamp.isoformat(),
+                "type": incident_type,
+                "city": city,  #  Store the city
+                "reported_by": reported_by,
+                "incident_id": str(uuid.uuid4())
+            }
+        )
+        return True
+    except Exception as e:
+        print("Error adding incident:", e)
+        return False
+
+
 def update_zone_severity(zone_id: str, severity: float, updated_at_iso: str) -> None:
     """Persist the latest severity score and updated_at timestamp."""
     zones_table.update_item(
