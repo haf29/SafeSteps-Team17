@@ -20,6 +20,12 @@ class _MapScreenState extends State<MapScreen> {
   final double _defaultZoom = 14.0;
   bool _loading = true;
 
+<<<<<<< HEAD
+=======
+  // Backend URL 
+  final String backendUrl = "http://localhost:8000";
+
+>>>>>>> 632c735158fdec53904e58ebc164503bccc759db
   @override
   void initState() {
     super.initState();
