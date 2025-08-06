@@ -20,7 +20,8 @@ class _MapScreenState extends State<MapScreen> {
   double _defaultZoom = 14.0;
   bool _loading = true;
 
-  final String backendUrl = "http://localhost:8000"; 
+  // Backend URL (for local development only)
+  final String backendUrl = "http://localhost:8000";
 
   @override
   void initState() {
@@ -28,15 +29,18 @@ class _MapScreenState extends State<MapScreen> {
     _getCurrentLocation();
   }
 
+  /// Get current user location
   Future<void> _getCurrentLocation() async {
     setState(() => _loading = true);
     var permission = await Permission.location.request();
 
     if (permission.isGranted) {
       try {
+        // Get user location
         Position position = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.high,
         );
+
         setState(() {
           currentPosition = position;
           markers = [
@@ -51,23 +55,22 @@ class _MapScreenState extends State<MapScreen> {
 
         // Fetch hexagons from backend
         await _fetchHexZones(position.latitude, position.longitude);
-        setState(() => _loading = false);
       } catch (e) {
         print('Error getting location: $e');
-        setState(() => _loading = false);
       }
-    } else {
-      setState(() => _loading = false);
     }
+    setState(() => _loading = false);
   }
 
+  /// Fetch hexagonal zones from FastAPI backend
   Future<void> _fetchHexZones(double lat, double lng) async {
     final url = Uri.parse('$backendUrl/hex_zones?lat=$lat&lng=$lng');
     final response = await http.get(url);
 
     if (response.statusCode == 200) {
       final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
-      final List<dynamic> data = jsonResponse['hex_zones'];
+
+      final List<dynamic> data = jsonResponse['zones'];
 
       List<Polygon> newPolygons = data.map((hex) {
         List<LatLng> points = (hex['boundary'] as List)
