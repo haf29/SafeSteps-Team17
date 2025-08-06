@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
-from api.models.user import UserSignUp, UserSignIn, UserToken
-from api.services import auth as auth_service
+from models.user import UserSignUp, UserSignIn, UserToken
+from services import auth as auth_service
 #Specifying API endpoints called by frontend
 #Endpoints will call auth.py
 router = APIRouter(prefix="/user", tags=["user"])

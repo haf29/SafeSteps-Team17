@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
-from api.models.incident import Incident
-from api.db.dynamo import add_incident
+from models.incident import Incident
+from db.dynamo import add_incident
 
 router = APIRouter(tags=["incident"])
 
