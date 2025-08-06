@@ -17,11 +17,8 @@ class _MapScreenState extends State<MapScreen> {
   Position? currentPosition;
   List<Marker> markers = [];
   List<Polygon> polygons = [];
-  double _defaultZoom = 14.0;
+  final double _defaultZoom = 14.0;
   bool _loading = true;
-
-  // Backend URL (for local development only)
-  final String backendUrl = "http://localhost:8000";
 
   @override
   void initState() {

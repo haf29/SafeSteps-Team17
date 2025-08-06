@@ -3,9 +3,9 @@ import json
 from typing import List, Dict
 from shapely.geometry import Point, shape
 
-from api.db.dynamo import get_zones_by_city, get_incidents_by_hex
-from api.services.h3_utils import get_hex_boundary
-from api.services.severity import calculate_score, categorize_score
+from db.dynamo import get_zones_by_city, get_incidents_by_hex
+from services.h3_utils import get_hex_boundary
+from services.severity import calculate_score, categorize_score
 
 
 

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query
 from typing import Dict
-from api.services.zone_service import get_city_zones
+from services.zone_service import get_city_zones
 
 #create a router for the zones
 router = APIRouter(tags=["zones"])

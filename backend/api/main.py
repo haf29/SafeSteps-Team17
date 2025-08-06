@@ -2,7 +2,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.routes import zones, incident, user  
+from routes import zones, incident, user  
 
 app = FastAPI(
     title="SafeSteps API",
