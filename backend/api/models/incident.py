@@ -9,3 +9,4 @@ class Incident(BaseModel):
     )
     timestamp: datetime = Field(..., description="UTC time when incident occurred")
     reported_by: str = Field(..., description="User identifier (Cognito sub)")
+    city: str = Field(..., description="City name where incident occurred")  #  NEW
