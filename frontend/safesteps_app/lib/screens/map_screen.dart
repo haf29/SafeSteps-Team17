@@ -111,6 +111,30 @@ class _MapScreenState extends State<MapScreen> {
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(bottom: Radius.circular(18)),
         ),
+        actions: [
+  Padding(
+    padding: const EdgeInsets.only(right: 12.0),
+    child: ElevatedButton.icon(
+      onPressed: () {
+        Navigator.pushNamed(context, '/report');
+      },
+      icon: const Icon(Icons.report, size: 24),
+      label: const Text(
+        'Report',
+        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+      ),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.red.shade600,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(30),
+        ),
+        elevation: 4,
+      ),
+    ),
+  ),
+],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
