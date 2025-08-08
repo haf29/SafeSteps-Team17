@@ -23,3 +23,10 @@ def generate_zone_ids(polygon: Dict[str, Any], resolution: int = 9) -> List[str]
 
     zone_set = h3.polyfill(geo_poly_latlon, resolution, geo_json_conformant=True)
     return list(zone_set)
+
+def get_hex_boundary(hex_id: str) -> List[List[float]]:
+    """
+    Convert H3 hexagon ID to GeoJSON boundary used by Frontend
+    """
+    return h3.h3_to_geo_boundary(hex_id, geo_json=True)
+

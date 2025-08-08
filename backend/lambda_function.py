@@ -92,7 +92,7 @@ def lambda_handler(event, context):
                     "message": "refresh complete",
                     "generate": gen,
                     "score": scr
-                })
+                 })
             }
 
         else:
