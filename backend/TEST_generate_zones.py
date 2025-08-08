@@ -2,7 +2,13 @@
 #from dotenv import load_dotenv
 #load_dotenv()
 from api.services.h3_utils import generate_zone_ids
-
+# type : featurecollection
+#features [
+#type : feature
+#properties:{name:beirut}
+#geometry :{
+#type:polygon
+#coordinates:[...]}}]
 beirut = {
     "type": "Polygon",
     "coordinates": [[

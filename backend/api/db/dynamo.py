@@ -14,7 +14,26 @@ ZONES_CITY_INDEX = os.getenv("ZONES_CITY_INDEX", "city-index")
 dynamodb = boto3.resource("dynamodb", region_name=REGION)
 zones_table = dynamodb.Table(ZONES_TABLE)
 incidents_table = dynamodb.Table(INCIDENTS_TABLE)
+# import json
 
+# Load the H3 hexagons file once
+# with open("docs/lebanon_districts_with_h3.geojson", "r") as f:
+#     hex_data = json.load(f)
+
+# Organize into a dict: {district_name: [list of hex_ids]}
+# city_hex_map = {}
+# for feature in hex_data["features"]:
+#     district = feature["properties"]["parent_district"]
+#     hex_id = feature["properties"]["zone_id"]
+#     city_hex_map.setdefault(district, []).append(hex_id)
+
+# def get_zones_by_city(city_name: str):
+#     """
+#     Return list of H3 hex IDs for a given city/district.
+#     """
+#     if city_name not in city_hex_map:
+#         raise ValueError(f"City '{city_name}' not found in H3 data.")
+#     return city_hex_map[city_name]
 
 def get_zones_by_city(city_name: str) -> List[str]:
     """
