@@ -140,7 +140,7 @@ class _ReportScreenState extends State<ReportScreen> {
               DropdownButtonFormField<String>(
                 value: _selectedType,
                 items: incidentTypes
-                    .map((type) => DropdownMenuItem(
+                    .map<DropdownMenuItem<String>>((type) => DropdownMenuItem(
                           value: type,
                           child: Text(type),
                         ))
@@ -159,7 +159,7 @@ class _ReportScreenState extends State<ReportScreen> {
               DropdownButtonFormField<String>(
                 value: _selectedCity,
                 items: cities
-                    .map((city) => DropdownMenuItem(
+                    .map<DropdownMenuItem<String>>((city) => DropdownMenuItem(
                           value: city,
                           child: Text(city),
                         ))
