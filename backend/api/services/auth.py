@@ -1,53 +1,48 @@
 import os
-from typing import Tuple
-import boto3
-from botocore.exceptions import ClientError
-from fastapi import HTTPException,status 
-
+from typing import Dict, Optional
+from fastapi import HTTPException, status
 from models.user import UserSignUp, UserSignIn, UserToken
+from models.user import _is_strong_password  # reuse model validator logic
 
-USER_POOL_ID = os.getenv("COGNITO_USER_POOL_ID")
-CLIENT_ID = os.getenv("COGNITO_APP_CLIENT_ID")
+AUTH_MODE = os.getenv("AUTH_MODE", "dev").lower()
 
-cognito = boto3.client("cognito-idp", region_name=os.getenv("AWS_REGION", "eu_north-1" ))
+class _DevAuth:
+    def __init__(self):
+        self.users: Dict[str, Dict[str, Optional[str]]] = {
+            "test@test.com": {"password": "password123AA!", "full_name": "Test User"}
+        }
 
-def sign_up(user : UserSignUp) -> str: 
-    try:
-        response = cognito.sign_up(
-            ClientId=CLIENT_ID,
-            Username=user.email,
-            Password=user.password,
-            UserAttributes=[{"Name": "email", "Value": user.email}]
-        )
-        return response["UserSub"]
-    except ClientError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    
-def confirm_sign_up(email: str, code: str) -> None:
-    cognito.confirm_sign_up(
-        ClientId=CLIENT_ID,
-        Username=email,
-        ConfirmationCode=code
-    )
-    return 
-def sign_in(credentials: UserSignIn) -> UserToken:
-    try:
-        response = cognito.admin_initiate_auth(
-            ClientId=CLIENT_ID,
-            AuthFlow="USER_PASSWORD_AUTH",
-            AuthParameters={"USERNAME": credentials.email, "PASSWORD": credentials.password},
-        )
-        auth = response["AuthenticationResult"]
+    def sign_up(self, user: UserSignUp) -> str:
+        if user.email in self.users:
+            raise HTTPException(status_code=409, detail="Email already exists")
+        # extra guard (model already validated)
+        err = _is_strong_password(user.password, user.email)
+        if err:
+            raise HTTPException(status_code=400, detail=err)
+        self.users[user.email] = {"password": user.password, "full_name": user.full_name}
+        return f"dev-{user.email}"
+
+    def sign_in(self, creds: UserSignIn) -> UserToken:
+        u = self.users.get(creds.email)
+        if not u or u["password"] != creds.password:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
         return UserToken(
-            access_token=auth["AccessToken"],
-            refresh_token=auth["RefreshToken"],
-            id_token=auth["IdToken"],
-            expires_in=auth["ExpiresIn"]
+            access_token="dev_access_token",
+            refresh_token="dev_refresh_token",
+            id_token="dev_id_token",
+            expires_in=3600,
         )
-    except ClientError as e:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
-    
 
+    def send_reset(self, email: str) -> None:
+        return
 
+_dev = _DevAuth()
 
+def sign_up(user: UserSignUp) -> str:
+    return _dev.sign_up(user)
 
+def sign_in(creds: UserSignIn) -> UserToken:
+    return _dev.sign_in(creds)
+
+def send_reset(email: str) -> None:
+    return _dev.send_reset(email)
