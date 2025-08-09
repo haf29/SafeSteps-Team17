@@ -1,44 +1,28 @@
-from pydantic import BaseModel, EmailStr, Field, validator
+from datetime import datetime
 from typing import Optional
-import re
-
-STRONG_PW_RE = re.compile(
-    r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#\$%\^&\*\(\)_\+\-\=\[\]\{\};':\"\\|,.<>\/\?]).{12,}$"
-)
-
-def _is_strong_password(pw: str, email: Optional[str] = None) -> Optional[str]:
-    if pw.strip() != pw:
-        return "Password cannot start or end with spaces"
-    if not STRONG_PW_RE.match(pw):
-        return ("Password must be at least 12 chars and include upper, lower, "
-                "digit, and special character")
-    if email:
-        local = email.split("@")[0].lower()
-        if local and local in pw.lower():
-            return "Password cannot contain your email username"
-    if "password" in pw.lower():
-        return "Password cannot contain the word 'password'"
-    return None
+from pydantic import BaseModel, EmailStr, Field
 
 class UserSignUp(BaseModel):
-    full_name: Optional[str] = ""
-    email: EmailStr
-    password: str = Field(min_length=12)
-
-    @validator("password")
-    def validate_password(cls, v, values):
-        err = _is_strong_password(v, values.get("email"))
-        if err:
-            raise ValueError(err)
-        return v
+    #what I'm expecting from frontend after signup
+    email: EmailStr 
+    password: str = Field(min_length=8, max_length=256)
+    full_name : Optional[str] = None
 
 class UserSignIn(BaseModel):
+    #what I'm expecting from frontend after signin
     email: EmailStr
-    password: str
+    password: str = Field(min_length=8, max_length=256)
 
 class UserToken(BaseModel):
+    #What I'm sending from backend to frontend after signin
     access_token: str
-    refresh_token: Optional[str] = ""
-    id_token: Optional[str] = ""
-    token_type: str = "bearer"
-    expires_in: int = 3600
+    refresh_token: Optional[str] = None
+    id_token: str
+    expires_in: int 
+
+class UserProfile(BaseModel):
+    user_sub: str # cognito user id UUID 
+    email: EmailStr
+    full_name: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime

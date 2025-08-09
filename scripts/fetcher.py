@@ -4,9 +4,11 @@ import json
 import os
 from shapely.geometry import Polygon, MultiPolygon, mapping
 from backend.api.services import h3_utils as hh
+
+
 # Load the GeoBoundaries GeoJSON file
 script_dir = os.path.dirname(__file__)
-geojson_path = os.path.join(script_dir, "LBN_ADM2.geojson")
+geojson_path = os.path.join(script_dir, "..", "data", "LBN_ADM2.geojson")
 gdf = gpd.read_file(geojson_path)
 #file is long-lat, coords in result is long-lat
 def generate_zone_ids(geometry, resolution=9):
@@ -64,7 +66,7 @@ geojson_output = {
 }
 
 #Save to file by writing result
-output_path = os.path.join(script_dir, "lebanon_districts_with_h3.geojson")
+output_path = os.path.join("data", "cities.json")
 with open(output_path, "w") as f:
     json.dump(geojson_output, f)
 

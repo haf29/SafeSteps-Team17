@@ -1,4 +1,3 @@
-import os
 import json
 from typing import List, Dict
 from shapely.geometry import Point, shape
@@ -7,32 +6,45 @@ from db.dynamo import get_zones_by_city, get_incidents_by_hex
 from services.h3_utils import get_hex_boundary
 from services.severity import calculate_score, categorize_score
 
+# Keep this EXACTLY as you asked
+CITY_FILE = "C:/Users/AliG2/OneDrive/Desktop/Amazon/SafeSteps-Team17/data/cities.json"
+print("Resolved CITY_FILE path:", CITY_FILE)
 
-
-"Im expecting to get a list of cities from the environment variable"
-"aka path to cities GeoJSON file"
-CITY_FILE = os.getenv("CITY_POLYGONS_FILE", "docs/cities.json")
-with open(CITY_FILE, "r") as f:
-    city_geo = json.load(f)
 
 def find_city(lat: float, lng: float) -> str:
     """
-    Find which city polygon contains the given point.
+    Find which city/district polygon contains the point (lat, lng).
+    Uses 'shapeName' from your cities.json properties.
     """
+    with open(CITY_FILE, "r", encoding="utf-8") as f:
+        city_geo = json.load(f)
+
     pt = Point(lng, lat)  # shapely expects (x=lon, y=lat)
-    for feature in city_geo["features"]:
-        city_name = feature["properties"]["name"]
-        poly = shape(feature["geometry"])
-        if poly.contains(pt):
+
+    for feature in city_geo.get("features", []):
+        props = feature.get("properties", {})
+        geom_dict = feature.get("geometry")
+
+        if not geom_dict:
+            continue  # skip malformed features
+
+        # IMPORTANT: pass the FULL geometry dict, not just coordinates
+        poly = shape(geom_dict)
+
+        # 'covers' treats boundary points as inside; 'contains' excludes them
+        if poly.covers(pt):
+            # your file uses 'shapeName'; fallback to 'name' if ever present
+            city_name = props.get("shapeName") or props.get("name") or "Unknown"
             return city_name
+
     raise ValueError("Location not inside any supported city")
+
 
 def get_city_zones(lat: float, lng: float, resolution: int = 9) -> Dict:
     """
-    Main orchestration: 
-    1) detect city, 
-    2) fetch hex IDs, 
-    3) fetch & score incidents, 
+    1) detect city,
+    2) fetch hex IDs,
+    3) fetch & score incidents,
     4) attach boundary & color.
     """
     city = find_city(lat, lng)
