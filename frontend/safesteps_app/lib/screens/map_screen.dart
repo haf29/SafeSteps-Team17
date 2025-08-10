@@ -17,7 +17,7 @@ class _MapScreenState extends State<MapScreen> {
   Position? currentPosition;
   List<Marker> markers = [];
   List<Polygon> polygons = [];
-  double _defaultZoom = 14.0;
+  final double _defaultZoom = 14.0;
   bool _loading = true;
   bool _backendError = false; // Track if backend failed
 
@@ -191,8 +191,8 @@ class _MapScreenState extends State<MapScreen> {
           ),
           child: FloatingActionButton(
             onPressed: _getCurrentLocation,
-            child: const Icon(Icons.my_location),
             backgroundColor: Colors.indigo,
+            child: const Icon(Icons.my_location),
           ),
         ),
       ),

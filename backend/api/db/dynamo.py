@@ -6,9 +6,9 @@ from decimal import Decimal
 from typing import List
 import uuid 
  
-REGION = os.getenv("AWS_REGION", "us-east-1")
-ZONES_TABLE = os.getenv("ZONES_TABLE", "zones")
-INCIDENTS_TABLE = os.getenv("INCIDENTS_TABLE", "incidents")
+REGION = os.getenv("AWS_REGION", "eu-north-1")
+ZONES_TABLE = os.getenv("ZONES_TABLE", "Zones")
+INCIDENTS_TABLE = os.getenv("INCIDENTS_TABLE", "Incidents")
 ZONES_CITY_INDEX = os.getenv("ZONES_CITY_INDEX", "city-index")
 
 dynamodb = boto3.resource("dynamodb", region_name=REGION)
@@ -56,15 +56,16 @@ def get_zones_by_city(city_name: str) -> List[str]:
         items = resp.get("Items", [])
     return [it["zone_id"] for it in items]
 def get_incidents_by_hex(zone_id: str) -> list[dict]:
-    """
-    Query the Incidents table for all incidents in a given hex.
-    returns a list of incident array of dictionaries
-    """
     resp = incidents_table.query(
         KeyConditionExpression=Key("zone_id").eq(zone_id),
-        ProjectionExpression="incident_type, timestamp"
+        ProjectionExpression="#type, #ts",
+        ExpressionAttributeNames={
+            "#type": "incident_type",
+            "#ts": "timestamp",     # alias the reserved word
+        },
     )
     return resp.get("Items", [])
+
 
 def put_zones(zone_ids: List[str], city: str) -> int:
     now_iso = datetime.utcnow().isoformat()
