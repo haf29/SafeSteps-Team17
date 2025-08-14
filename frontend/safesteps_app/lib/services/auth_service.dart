@@ -1,98 +1,102 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
-abstract class AuthService {
-  Future<void> signup({required String name, required String email, required String password});
-  Future<String> login({required String email, required String password});
-  Future<void> sendReset({required String email});
-}
+// SAME base URL you used elsewhere:
+// Android emulator: http://10.0.2.2:8000
+// iOS simulator:    http://localhost:8000
+const String kBaseUrl = "http://10.0.2.2:8000";
 
-class RealAuthService implements AuthService {
-  RealAuthService({String? base})
-      : baseUrl = base ?? const String.fromEnvironment('API_BASE', defaultValue: 'http://127.0.0.1:8000');
+const String kSignupPath = "/user/signup";
+const String kSigninPath = "/user/login";   // <- matches your backend
 
-  final String baseUrl;
-  Duration get _timeout => const Duration(seconds: 12);
+const _kAccessToken = "access_token";
+const _kIdToken = "id_token";
+const _kRefreshToken = "refresh_token";
+const _kExpiresAt = "expires_at_epoch_ms";
 
-  @override
-  Future<void> signup({required String name, required String email, required String password}) async {
-    final res = await http
-        .post(
-          Uri.parse('$baseUrl/user/signup'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({'full_name': name, 'email': email, 'password': password}),
-        )
-        .timeout(_timeout);
-
-    if (res.statusCode >= 400) {
-      throw Exception(_extractError(res.body, fallback: 'Sign up failed'));
-    }
-  }
-
-  @override
-  Future<String> login({required String email, required String password}) async {
-    final res = await http
-        .post(
-          Uri.parse('$baseUrl/user/login'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({'email': email, 'password': password}),
-        )
-        .timeout(_timeout);
-
-    if (res.statusCode >= 400) {
-      throw Exception(_extractError(res.body, fallback: 'Invalid email or password'));
-    }
-    final m = jsonDecode(res.body) as Map<String, dynamic>;
-    return (m['access_token'] as String?) ?? '';
-  }
-
-  @override
-  Future<void> sendReset({required String email}) async {
-    final res = await http
-        .post(
-          Uri.parse('$baseUrl/user/forgot'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({'email': email}),
-        )
-        .timeout(_timeout);
-
-    if (res.statusCode >= 400) {
-      throw Exception(_extractError(res.body, fallback: 'Could not send reset link'));
-    }
-  }
-
-  String _extractError(String body, {required String fallback}) {
+class AuthService {
+  static Exception _extractError(http.Response res) {
     try {
-      final m = jsonDecode(body);
-      if (m is Map && m['detail'] is String) return m['detail'];
+      final m = jsonDecode(res.body);
+      final detail = (m is Map && m["detail"] != null) ? m["detail"].toString() : null;
+      return Exception(detail ?? "HTTP ${res.statusCode}");
+    } catch (_) {
+      return Exception("HTTP ${res.statusCode}");
+    }
+  }
+
+  static Future<void> _saveTokens(Map<String, dynamic> tokenJson) async {
+    final prefs = await SharedPreferences.getInstance();
+    final access = tokenJson[_kAccessToken] as String?;
+    final id = tokenJson[_kIdToken] as String?;
+    final refresh = tokenJson[_kRefreshToken] as String?;
+    final expiresIn = tokenJson["expires_in"] as int?;
+    if (access == null || id == null || expiresIn == null) {
+      throw Exception("Invalid token payload from server.");
+    }
+    final expiresAt = DateTime.now().add(Duration(seconds: expiresIn)).millisecondsSinceEpoch;
+    await prefs.setString(_kAccessToken, access);
+    await prefs.setString(_kIdToken, id);
+    if (refresh != null) await prefs.setString(_kRefreshToken, refresh);
+    await prefs.setInt(_kExpiresAt, expiresAt);
+  }
+
+  static Future<void> signup({required String email, required String password, String? fullName}) async {
+    final res = await http.post(
+      Uri.parse("$kBaseUrl$kSignupPath"),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        "email": email,
+        "password": password,
+        if (fullName != null && fullName.trim().isNotEmpty) "full_name": fullName.trim(),
+      }),
+    );
+    if (res.statusCode < 200 || res.statusCode >= 300) throw _extractError(res);
+    // if backend also returns tokens on signup, this will save them:
+    try {
+      final data = jsonDecode(res.body);
+      if (data is Map<String, dynamic> && data.containsKey(_kAccessToken)) {
+        await _saveTokens(data);
+      }
     } catch (_) {}
-    return fallback;
-  }
-}
-
-class MockAuthService implements AuthService {
-  Duration get _delay => const Duration(milliseconds: 600);
-
-  @override
-  Future<void> signup({required String name, required String email, required String password}) async {
-    await Future.delayed(_delay);
-    if (email.contains('exists')) throw Exception('Email already exists');
   }
 
-  @override
-  Future<String> login({required String email, required String password}) async {
-    await Future.delayed(_delay);
-    if (password.length < 8) throw Exception('Password must be at least 8 characters');
-    return 'mock-token-123';
+  static Future<void> signin({required String email, required String password}) async {
+    final res = await http.post(
+      Uri.parse("$kBaseUrl$kSigninPath"),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({"email": email, "password": password}),
+    );
+    if (res.statusCode == 200) {
+      await _saveTokens(jsonDecode(res.body) as Map<String, dynamic>);
+    } else {
+      throw _extractError(res);
+    }
   }
 
-  @override
-  Future<void> sendReset({required String email}) async {
-    await Future.delayed(_delay);
+  static Future<bool> isLoggedIn() async {
+    final prefs = await SharedPreferences.getInstance();
+    final access = prefs.getString(_kAccessToken);
+    final exp = prefs.getInt(_kExpiresAt);
+    if (access == null || exp == null) return false;
+    return DateTime.now().millisecondsSinceEpoch < exp;
   }
-}
 
-AuthService makeAuthService() {
-  const useMock = bool.fromEnvironment('USE_MOCK', defaultValue: false);
-  return useMock ? MockAuthService() : RealAuthService();
+  static Future<Map<String, String>> authHeaders({bool useIdToken = false}) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = useIdToken ? prefs.getString(_kIdToken) : prefs.getString(_kAccessToken);
+    return {
+      'Content-Type': 'application/json',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
+
+  static Future<void> logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_kAccessToken);
+    await prefs.remove(_kIdToken);
+    await prefs.remove(_kRefreshToken);
+    await prefs.remove(_kExpiresAt);
+  }
 }

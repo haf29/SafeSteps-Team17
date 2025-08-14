@@ -1,13 +1,16 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from models.user import UserSignUp, UserSignIn, UserToken
 from services import auth as auth_service
-#Specifying API endpoints called by frontend
-#Endpoints will call auth.py
+
 router = APIRouter(prefix="/user", tags=["user"])
-@router.post("/signup", status_code = 201)
+
+@router.post("/signup", status_code=201)
 def register_user(user: UserSignUp):
     user_sub = auth_service.sign_up(user)
-    return {"message": "User registered successfully"-  "Check email for confirmation code"}
+    return {
+        "message": "User registered successfully - Check email for confirmation code",
+        "user_sub": user_sub
+    }
 
 @router.post("/login", response_model=UserToken)
 def login(credentials: UserSignIn):
