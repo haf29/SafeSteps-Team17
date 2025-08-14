@@ -5,7 +5,9 @@ from datetime import datetime
 from decimal import Decimal
 from typing import List
 import uuid 
- 
+from typing import Optional, Dict, Any
+from services.severity import find_nearest_safe_hex
+
 REGION = os.getenv("AWS_REGION", "eu-north-1")
 ZONES_TABLE = os.getenv("ZONES_TABLE", "Zones")
 INCIDENTS_TABLE = os.getenv("INCIDENTS_TABLE", "Incidents")
@@ -82,21 +84,32 @@ def put_zones(zone_ids: List[str], city: str) -> int:
     return len(zone_ids)
 
 def add_incident(zone_id, incident_type, timestamp, city, reported_by):
+    """
+    Writes an incident with PK: zone_id, SK: timestamp (ISO8601).
+    `timestamp` can be a datetime or an ISO string.
+    """
+    # normalize timestamp
+    if isinstance(timestamp, datetime):
+        ts_str = timestamp.isoformat()
+    else:
+        ts_str = str(timestamp)
+
     try:
         incidents_table.put_item(
             Item={
                 "zone_id": zone_id,
-                "timestamp": timestamp.isoformat(),
-                "type": incident_type,
-                "city": city,  #  Store the city
+                "timestamp": ts_str,              # SK (reserved word is ok as an attribute name)
+                "incident_type": incident_type,   # <-- FIXED to match readers
+                "city": city,
                 "reported_by": reported_by,
-                "incident_id": str(uuid.uuid4())
+                "incident_id": str(uuid.uuid4()),
             }
         )
         return True
     except Exception as e:
         print("Error adding incident:", e)
         return False
+
 
 
 def update_zone_severity(zone_id: str, severity: float, updated_at_iso: str) -> None:
@@ -109,4 +122,18 @@ def update_zone_severity(zone_id: str, severity: float, updated_at_iso: str) -> 
             ":u": updated_at_iso
         }
     )
+
+def get_zone_by_id(zone_id: str) -> Optional[Dict[str, Any]]:
+    """Return the full Zone item or None."""
+    resp = zones_table.get_item(Key={"zone_id": zone_id})
+    return resp.get("Item")
+
+def get_nearest_safe_hex(start_hex: str) -> str | None:
+    return find_nearest_safe_hex(
+        start_hex,
+        get_severity_by_hex=lambda z: (get_zone_by_id(z) or {}).get("severity"),
+        safe_threshold=3.0,
+        max_rings=3
+    )
+
 
