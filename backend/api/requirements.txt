@@ -1,6 +1,9 @@
-datetime
-typing
-pydantic 
-os 
-boto3
-fastapi
+
+
+fastapi>=0.100
+uvicorn[standard]>=0.23
+pydantic>=1.10,<2.0
+boto3>=1.28
+h3>=3.7
+shapely>=2.0
+python-dotenv>=1.0

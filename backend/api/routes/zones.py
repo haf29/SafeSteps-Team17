@@ -1,23 +1,23 @@
-from fastapi import APIRouter, HTTPException, Query
-from typing import Dict
-from services.zone_service import get_city_zones
+from __future__ import annotations
 
-#create a router for the zones
+from fastapi import APIRouter, HTTPException, Query
+from services.zone_service import get_city_zones, get_cities
+
 router = APIRouter(tags=["zones"])
 
-"this is the endpoint for the zones"
-@router.get("/hex_zones", response_model=Dict)
 
+@router.get("/hex_zones")
 def hex_zones(
-    lat: float = Query(..., description="User latitude"),
-    lng: float = Query(..., description="User longitude"),
-    resolution: int = Query(9, description="H3 resolution, default=9")
+    lat: float = Query(..., description="Latitude"),
+    lng: float = Query(..., description="Longitude"),
+    resolution: int = Query(9, ge=1, le=15, description="H3 resolution (1-15)"),
 ):
-    """
-    Returns hexagons for the city containing (lat,lng), 
-    each with boundary coords, severity score, and color.
-    """
     try:
-        return get_city_zones(lat, lng, resolution)
+        return get_city_zones(lat, lng, resolution=resolution)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/cities")
+def list_cities():
+    return {"cities": get_cities()}
