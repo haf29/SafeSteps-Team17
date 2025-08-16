@@ -20,4 +20,4 @@ def hex_zones(
 
 @router.get("/cities")
 def list_cities():
-    return {"cities": get_cities()}
+    return {"cities": get_cities()} 

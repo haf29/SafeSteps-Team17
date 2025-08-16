@@ -1,10 +1,19 @@
+from functools import lru_cache
+import json
+from shapely.geometry import shape
 import os
 import json
 from typing import List, Dict
 from pathlib import Path
 from shapely.geometry import Point, shape
 
-from db.dynamo import get_zones_by_city, get_incidents_by_hex
+from db.dynamo import (
+    get_zones_by_city,
+    get_incidents_by_hex,
+    get_boundary_for_hex,
+    put_boundary_for_hex,
+    get_city_items_all
+)
 from services.h3_utils import get_hex_boundary
 from services.severity import calculate_score, categorize_score
 
@@ -14,75 +23,79 @@ CITY_FILE = os.getenv(
     str((Path(__file__).resolve().parents[3] / "data" / "cities.json"))
 )
 print("Resolved CITY_FILE path:", CITY_FILE)
+BOUNDARY_RES = int(os.getenv("BOUNDARY_RES", "9"))  # precomputed resolution you warmed
 
+def _load_city_features() -> List[Dict]:
+    with open(CITY_FILE, "r", encoding="utf-8") as f:
+        gj = json.load(f)
+    out = []
+    for feat in gj.get("features", []):
+        geom = feat.get("geometry")
+        if not geom:
+            continue
+        out.append({
+            "name": feat.get("properties", {}).get("shapeName")
+                    or feat.get("properties", {}).get("name"),
+            "poly": shape(geom),
+        })
+    return out
+
+_CITY_FEATS = _load_city_features()
 
 def find_city(lat: float, lng: float) -> str:
-    """
-    Find which city/district polygon contains the point (lat, lng).
-    Uses 'shapeName' (fallback to 'name') from your cities.json properties.
-    """
-    with open(CITY_FILE, "r", encoding="utf-8") as f:
-        city_geo = json.load(f)
-
-    pt = Point(lng, lat)  # shapely expects (x=lon, y=lat)
-
-    for feature in city_geo.get("features", []):
-        props = feature.get("properties", {})
-        geom_dict = feature.get("geometry")
-        if not geom_dict:
-            continue  # skip malformed features
-
-        poly = shape(geom_dict)
-        # 'covers' treats boundary points as inside; 'contains' excludes them
-        if poly.covers(pt):
-            city_name = props.get("shapeName") or props.get("name") or "Unknown"
-            return city_name
-
+    pt = Point(lng, lat)
+    for f in _CITY_FEATS:
+        if f["poly"].covers(pt):
+            return f["name"]
     raise ValueError("Location not inside any supported city")
-
-
+def _parse_boundary(b):
+    """
+    Boundaries are stored as a JSON string in Dynamo to avoid float/Decimal issues.
+    Accept str (JSON) or already-parsed list.
+    """
+    if not b:
+        return None
+    if isinstance(b, str):
+        try:
+            return json.loads(b)
+        except Exception:
+            return None
+    if isinstance(b, list):
+        return b
+    return None
+    
 def get_city_zones(lat: float, lng: float, resolution: int = 9) -> Dict:
     """
-    1) detect city,
-    2) fetch hex IDs,
-    3) fetch & score incidents,
-    4) attach boundary & color.
+    FAST READ:
+      1) detect city
+      2) single (paged) GSI query to get {zone_id, severity, boundary}
+      3) map severity -> color and return
+    Assumes severity & boundary were precomputed and stored on Zones items.
     """
     city = find_city(lat, lng)
-    hex_ids = get_zones_by_city(city)
+
+    rows = get_city_items_all(city, page_limit=1000)  # 3.5k rows = ~4 requests
 
     zones: List[Dict] = []
-    for hex_id in hex_ids:
-        incs = get_incidents_by_hex(hex_id)
-        score = calculate_score(incs) if incs else 0.0
-        color = categorize_score(score)
-        boundary = get_hex_boundary(hex_id)
-
+    for it in rows:
+        sev = float(it.get("severity", 0))
         zones.append({
-            "zone_id": hex_id,
-            "boundary": boundary,
-            "score": score,
-            "color": color
+            "zone_id": it["zone_id"],
+            "boundary": it.get("boundary") or [],  # should be present if you pre-warmed
+            "score": sev,
+            "color": categorize_score(sev),
         })
 
     return {"city": city, "zones": zones}
 
+# Add this to backend/api/services/zone_service.py
 
-# NEW — routes/zones.py expects this
-def get_cities() -> List[str]:
+from functools import lru_cache
+
+@lru_cache(maxsize=1)
+def get_cities() -> list[str]:
     """
-    Return a unique, sorted list of city/district names present in cities.json.
-    Uses 'shapeName' if available, otherwise 'name'.
+    Return a stable, sorted list of city/district names from cities.json.
+    Cached so it’s effectively free after first call.
     """
-    with open(CITY_FILE, "r", encoding="utf-8") as f:
-        gj = json.load(f)
-
-    names: List[str] = []
-    for feat in gj.get("features", []):
-        props = feat.get("properties", {}) or {}
-        name = props.get("shapeName") or props.get("name")
-        if name:
-            names.append(name)
-
-    # unique + sorted for stable UI
-    return sorted(set(names))
+    return sorted({f["name"] for f in _CITY_FEATS})
