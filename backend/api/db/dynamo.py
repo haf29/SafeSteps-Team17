@@ -7,6 +7,8 @@ from typing import List
 import uuid 
 from typing import Optional, Dict, Any
 from services.severity import find_nearest_safe_hex
+import json 
+
 
 REGION = os.getenv("AWS_REGION", "eu-north-1")
 ZONES_TABLE = os.getenv("ZONES_TABLE", "Zones")
@@ -16,31 +18,64 @@ ZONES_CITY_INDEX = os.getenv("ZONES_CITY_INDEX", "city-index")
 dynamodb = boto3.resource("dynamodb", region_name=REGION)
 zones_table = dynamodb.Table(ZONES_TABLE)
 incidents_table = dynamodb.Table(INCIDENTS_TABLE)
-# import json
+def get_city_items_all(city: str, page_limit: int = 1000) -> List[Dict[str, Any]]:
+    """
+    FAST PATH: Query the city GSI and return all items with
+    {zone_id, severity, boundary, boundary_res}. This does a few paged queries,
+    not 1-per-hex calls.
+    """
+    attrs = {"#z": "zone_id", "#b": "boundary", "#r": "boundary_res"}
+    proj = "#z, severity, #b, #r"
 
-# Load the H3 hexagons file once
-# with open("docs/lebanon_districts_with_h3.geojson", "r") as f:
-#     hex_data = json.load(f)
+    items: List[Dict[str, Any]] = []
+    lek: Optional[Dict[str, Any]] = None
 
-# Organize into a dict: {district_name: [list of hex_ids]}
-# city_hex_map = {}
-# for feature in hex_data["features"]:
-#     district = feature["properties"]["parent_district"]
-#     hex_id = feature["properties"]["zone_id"]
-#     city_hex_map.setdefault(district, []).append(hex_id)
+    while True:
+        kwargs = {
+            "IndexName": ZONES_CITY_INDEX,
+            "KeyConditionExpression": Key("city").eq(city),
+            "ProjectionExpression": proj,
+            "ExpressionAttributeNames": attrs,
+            "Limit": page_limit,
+        }
+        if lek:
+            kwargs["ExclusiveStartKey"] = lek
 
-# def get_zones_by_city(city_name: str):
-#     """
-#     Return list of H3 hex IDs for a given city/district.
-#     """
-#     if city_name not in city_hex_map:
-#         raise ValueError(f"City '{city_name}' not found in H3 data.")
-#     return city_hex_map[city_name]
+        resp = zones_table.query(**kwargs)
+        items.extend(resp.get("Items", []))
+        lek = resp.get("LastEvaluatedKey")
+        if not lek:
+            break
 
+    return items
+def get_boundary_for_hex(zone_id: str, res: int) -> Optional[List[List[float]]]:
+    """
+    Read a stored boundary for this hex at the given resolution, if present.
+    Expects attributes 'boundary' (list[list[lat,lng]]) and 'boundary_res'.
+    """
+    resp = zones_table.get_item(
+        Key={"zone_id": zone_id},
+        ProjectionExpression="#b,#r",
+        ExpressionAttributeNames={"#b": "boundary", "#r": "boundary_res"},
+    )
+    item = resp.get("Item") or {}
+    if not item:
+        return None
+    try:
+        if int(item.get("boundary_res", res)) == int(res) and item.get("boundary"):
+            return item["boundary"]
+    except Exception:
+        pass
+    return None
+def put_boundary_for_hex(zone_id: str, boundary: List[List[float]], res: int) -> None:
+    zones_table.update_item(
+        Key={"zone_id": zone_id},
+        UpdateExpression="SET boundary = :b, boundary_res = :r",
+        ExpressionAttributeValues={":b": boundary, ":r": int(res)},
+    )
 def get_zones_by_city(city_name: str) -> List[str]:
     """
-    Return all zone_ids for a city.
-    Prefers GSI query on city; falls back to table scan if GSI not present.
+    Return all zone_ids for a city. Prefer GSI query; fall back to scan if needed.
     """
     try:
         resp = zones_table.query(
@@ -50,24 +85,24 @@ def get_zones_by_city(city_name: str) -> List[str]:
         )
         items = resp.get("Items", [])
     except Exception:
-        # Fallback (more expensive): scan filter by city
         resp = zones_table.scan(
             FilterExpression=Attr("city").eq(city_name),
             ProjectionExpression="zone_id"
         )
         items = resp.get("Items", [])
     return [it["zone_id"] for it in items]
+
+
 def get_incidents_by_hex(zone_id: str) -> list[dict]:
     resp = incidents_table.query(
         KeyConditionExpression=Key("zone_id").eq(zone_id),
         ProjectionExpression="#type, #ts",
         ExpressionAttributeNames={
             "#type": "incident_type",
-            "#ts": "timestamp",     # alias the reserved word
+            "#ts": "timestamp",  # reserved word, alias it
         },
     )
     return resp.get("Items", [])
-
 
 def put_zones(zone_ids: List[str], city: str) -> int:
     now_iso = datetime.utcnow().isoformat()
@@ -136,4 +171,47 @@ def get_nearest_safe_hex(start_hex: str) -> str | None:
         max_rings=3
     )
 
+def get_zones_by_city_with_severity(
+    city_name: str, *, limit: int = 1000, last_evaluated_key: dict | None = None
+) -> tuple[list[dict], dict | None]:
+    """
+    (Keep for completeness, but the new helper below will autopaginate for you.)
+    """
+    kwargs = {
+        "IndexName": ZONES_CITY_INDEX,
+        "KeyConditionExpression": Key("city").eq(city_name),
+        "ProjectionExpression": "zone_id, severity, boundary",  # <-- include boundary in fast path
+        "Limit": limit,
+    }
+    if last_evaluated_key:
+        kwargs["ExclusiveStartKey"] = last_evaluated_key
 
+    resp = zones_table.query(**kwargs)
+    return resp.get("Items", []), resp.get("LastEvaluatedKey")
+def get_all_zones_by_city_full(city_name: str) -> list[dict]:
+    """
+    Pull ALL zones for a city via GSI with (zone_id, severity, boundary),
+    transparently auto-paginating until done.
+    """
+    items: list[dict] = []
+    lek = None
+    while True:
+        page, lek = get_zones_by_city_with_severity(city_name, limit=1000, last_evaluated_key=lek)
+        items.extend(page or [])
+        if not lek:
+            break
+    return items
+def update_zone_boundary(zone_id: str, boundary_coords: list[list[float]]) -> None:
+    """
+    Cache boundary on the Zone item so we don't recompute H3 boundary next time.
+    We store it as a JSON string to avoid float/Decimal headaches.
+    """
+    now_iso = datetime.utcnow().isoformat()
+    zones_table.update_item(
+        Key={"zone_id": zone_id},
+        UpdateExpression="SET boundary = :b, boundary_updated_at = :u",
+        ExpressionAttributeValues={
+            ":b": json.dumps(boundary_coords),
+            ":u": now_iso,
+        },
+    )
