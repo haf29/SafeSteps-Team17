@@ -1,6 +1,7 @@
+from __future__ import annotations
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
-from __future__ import annotations
+
 
 
 import h3  # type: ignore

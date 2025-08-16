@@ -61,9 +61,9 @@ class _MapScreenState extends State<MapScreen> {
         await _fetchHexZones(position.latitude, position.longitude);
       } catch (e) {
         print('Error getting location: $e');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error getting location: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error getting location: $e')));
         setState(() => _loading = false);
       }
     } else {
@@ -131,7 +131,10 @@ class _MapScreenState extends State<MapScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                 ),
@@ -142,46 +145,45 @@ class _MapScreenState extends State<MapScreen> {
                 Navigator.pushNamed(context, '/report');
               },
             ),
-          )
+          ),
         ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _backendError
-              ? const Center(
-                  child: Text(
-                    "Failed to load data from backend.",
-                    style: TextStyle(fontSize: 16, color: Colors.red),
-                  ),
-                )
-              : currentPosition == null || polygons.isEmpty
-                  ? const Center(child: Text("No map data available."))
-                  : Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: FlutterMap(
-                          options: MapOptions(
-                            center: LatLng(
-                              currentPosition!.latitude,
-                              currentPosition!.longitude,
-                            ),
-                            zoom: _defaultZoom,
-                          ),
-                          children: [
-                            TileLayer(
-                              urlTemplate:
-                                  'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                              subdomains: const ['a', 'b', 'c'],
-                              userAgentPackageName:
-                                  'com.example.safesteps_app',
-                            ),
-                            PolygonLayer(polygons: polygons),
-                            MarkerLayer(markers: markers),
-                          ],
-                        ),
-                      ),
+          ? const Center(
+              child: Text(
+                "Failed to load data from backend.",
+                style: TextStyle(fontSize: 16, color: Colors.red),
+              ),
+            )
+          : currentPosition == null || polygons.isEmpty
+          ? const Center(child: Text("No map data available."))
+          : Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: FlutterMap(
+                  options: MapOptions(
+                    initialCenter: LatLng(
+                      currentPosition!.latitude,
+                      currentPosition!.longitude,
                     ),
+                    initialZoom: _defaultZoom,
+                  ),
+                  children: [
+                    TileLayer(
+                      urlTemplate:
+                          'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      subdomains: const ['a', 'b', 'c'],
+                      userAgentPackageName: 'com.example.safesteps_app',
+                    ),
+                    PolygonLayer(polygons: polygons),
+                    MarkerLayer(markers: markers),
+                  ],
+                ),
+              ),
+            ),
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 12.0, right: 4.0),
         child: Card(
