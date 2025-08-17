@@ -82,10 +82,13 @@ class _MapScreenState extends State<MapScreen> {
     if (response.statusCode == 200) {
       final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
       final List<dynamic> zonesData = jsonResponse['zones'];
+      
+      print('zones returned = ${zonesData.length}');
+
 
       List<Polygon> newPolygons = zonesData.map((hex) {
         List<LatLng> points = (hex['boundary'] as List)
-            .map((coord) => LatLng(coord[0], coord[1]))
+            .map((coord) => LatLng(coord[1], coord[0]))
             .toList();
 
         String colorHex = hex['color'].replaceAll("#", "");

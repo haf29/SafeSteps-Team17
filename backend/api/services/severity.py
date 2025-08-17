@@ -84,10 +84,10 @@ def categorize_score(score: float) -> str:
     (Backwards-compatible thresholds.)
     """
     if score <= 3:
-        return "green"
+        return "#00FF00"
     elif score <= 6:
-        return "yellow"
-    return "red"
+        return "#FFFF00"
+    return "#FF000"
 
 def find_nearest_safe_hex(
     start_hex: str,

@@ -79,9 +79,10 @@ def get_city_zones(lat: float, lng: float, resolution: int = 9) -> Dict:
     zones: List[Dict] = []
     for it in rows:
         sev = float(it.get("severity", 0))
+        boundary = _parse_boundary(it.get("boundary"))
         zones.append({
             "zone_id": it["zone_id"],
-            "boundary": it.get("boundary") or [],  # should be present if you pre-warmed
+            "boundary": boundary or [],  # should be present if you pre-warmed
             "score": sev,
             "color": categorize_score(sev),
         })
