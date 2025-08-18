@@ -1,84 +1,125 @@
 // lib/services/auth_api.dart
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-
-class AuthTokens {
-  final String accessToken;
-  final String refreshToken;
-  final String idToken;
-  final int expiresIn;
-
-  AuthTokens({
-    required this.accessToken,
-    required this.refreshToken,
-    required this.idToken,
-    required this.expiresIn,
-  });
-
-  factory AuthTokens.fromJson(Map<String, dynamic> j) => AuthTokens(
-        accessToken: j['access_token'] ?? '',
-        refreshToken: j['refresh_token'] ?? '',
-        idToken: j['id_token'] ?? '',
-        expiresIn: j['expires_in'] ?? 0,
-      );
-}
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthApi {
-  // Change this if your API runs elsewhere
-  static const String _base = 'http://127.0.0.1:8000';
+  // Use a --dart-define at run time or change the default:
+  // flutter run -d chrome --dart-define=API_BASE=http://localhost:8000
+  static const String _apiBase =
+      String.fromEnvironment('API_BASE', defaultValue: 'http://localhost:8000');
 
-  Future<void> signUp({
-    required String fullName,
-    required String email,
-    required String password,
-  }) async {
-    final resp = await http.post(
-      Uri.parse('$_base/user/signup'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'full_name': fullName,
-        'email': email,
-        'password': password,
-      }),
-    );
+  static const _kAccess = 'access_token';
+  static const _kRefresh = 'refresh_token';
+  static const _kId = 'id_token';
+  static const _kExp = 'expires_in';
 
-    if (resp.statusCode != 201) {
-      final body = resp.body.isNotEmpty ? jsonDecode(resp.body) : {};
-      throw Exception(body['detail'] ?? 'Signup failed (${resp.statusCode})');
-    }
+  // ---------- Session helpers ----------
+  static Future<bool> isLoggedIn() async {
+    final prefs = await SharedPreferences.getInstance();
+    final t = prefs.getString(_kAccess);
+    return t != null && t.isNotEmpty;
   }
 
-  Future<void> confirm({
+  static Future<void> logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_kAccess);
+    await prefs.remove(_kRefresh);
+    await prefs.remove(_kId);
+    await prefs.remove(_kExp);
+  }
+
+  static Future<Map<String, String>> authHeaders() async {
+    final prefs = await SharedPreferences.getInstance();
+    final t = prefs.getString(_kAccess);
+    return {
+      'Content-Type': 'application/json',
+      if (t != null && t.isNotEmpty) 'Authorization': 'Bearer $t',
+    };
+  }
+
+  // ---------- API calls ----------
+  // POST /user/signup -> {message, user_sub}
+  static Future<SignupResult> signup({
+    required String email,
+    required String password,
+    String? fullName,
+  }) async {
+    final res = await http.post(
+      Uri.parse('$_apiBase/user/signup'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'email': email,
+        'password': password,
+        'full_name': fullName,
+      }),
+    );
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw Exception('Signup failed (${res.statusCode}): ${res.body}');
+    }
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    return SignupResult(
+      message: data['message']?.toString() ?? 'Signed up',
+      userSub: data['user_sub']?.toString(),
+    );
+  }
+
+  // POST /user/confirm -> 204
+  static Future<void> confirm({
     required String email,
     required String code,
   }) async {
-    final resp = await http.post(
-      Uri.parse('$_base/user/confirm'),
+    final res = await http.post(
+      Uri.parse('$_apiBase/user/confirm'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'email': email, 'code': code}),
     );
-
-    if (resp.statusCode != 200) {
-      final body = resp.body.isNotEmpty ? jsonDecode(resp.body) : {};
-      throw Exception(body['detail'] ?? 'Confirmation failed (${resp.statusCode})');
+    if (res.statusCode != 204) {
+      throw Exception('Confirmation failed (${res.statusCode}): ${res.body}');
     }
   }
 
-  Future<AuthTokens> login({
+  // POST /user/resend-code -> 204
+  static Future<void> resendCode({required String email}) async {
+    final res = await http.post(
+      Uri.parse('$_apiBase/user/resend-code'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'email': email}),
+    );
+    if (res.statusCode != 204) {
+      throw Exception('Resend code failed (${res.statusCode}): ${res.body}');
+    }
+  }
+
+  // POST /user/login -> {access_token, refresh_token?, id_token, expires_in}
+  static Future<void> login({
     required String email,
     required String password,
   }) async {
-    final resp = await http.post(
-      Uri.parse('$_base/user/login'),
+    final res = await http.post(
+      Uri.parse('$_apiBase/user/login'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'email': email, 'password': password}),
     );
-
-    if (resp.statusCode != 200) {
-      final body = resp.body.isNotEmpty ? jsonDecode(resp.body) : {};
-      throw Exception(body['detail'] ?? 'Login failed (${resp.statusCode})');
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw Exception('Login failed (${res.statusCode}): ${res.body}');
     }
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
 
-    return AuthTokens.fromJson(jsonDecode(resp.body));
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kAccess, (data['access_token'] ?? '').toString());
+    await prefs.setString(_kId, (data['id_token'] ?? '').toString());
+    if (data['refresh_token'] != null) {
+      await prefs.setString(_kRefresh, data['refresh_token'].toString());
+    }
+    if (data['expires_in'] != null) {
+      await prefs.setString(_kExp, data['expires_in'].toString());
+    }
   }
+}
+
+class SignupResult {
+  final String message;
+  final String? userSub;
+  SignupResult({required this.message, this.userSub});
 }
