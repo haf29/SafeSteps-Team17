@@ -6,8 +6,13 @@ import 'screens/signup_screen.dart';
 import 'screens/confirm_screen.dart';
 import 'screens/map_screen.dart';
 import 'screens/report_screen.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'models/hex_zone_model.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Hive.initFlutter();
+  Hive.registerAdapter(HexZoneAdapter());
   runApp(const MyApp());
 }
 
