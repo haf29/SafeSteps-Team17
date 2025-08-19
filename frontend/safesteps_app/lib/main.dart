@@ -6,8 +6,16 @@ import 'screens/signup_screen.dart';
 import 'screens/confirm_screen.dart';
 import 'screens/map_screen.dart';
 import 'screens/report_screen.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'models/hex_zone_model.dart';
 
-void main() {
+// ADD THIS IMPORT so references to AuthApi compile:
+import 'services/auth_api.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Hive.initFlutter();
+  Hive.registerAdapter(HexZoneAdapter());
   runApp(const MyApp());
 }
 
@@ -26,7 +34,7 @@ class MyApp extends StatelessWidget {
       routes: {
         '/login': (_) => const LoginScreen(),
         '/signup': (_) => const SignUpScreen(),
-        '/confirm': (_) => const ConfirmScreen(), // or ConfirmCodeScreen if that’s your class name
+        '/confirm': (_) => const ConfirmScreen(),
         '/map': (_) => const MapScreen(),
         '/report': (_) => const ReportScreen(),
       },
@@ -79,7 +87,9 @@ class _SafeStepsAppState extends State<SafeStepsApp> {
             );
           }
           final isIn = snap.data == true;
-          return isIn ? const _AuthedHome() : LoginScreen(onAuthenticated: _refreshAuth);
+          return isIn
+              ? const _AuthedHome()
+              : LoginScreen(onAuthenticated: _refreshAuth);
         },
       ),
     );
@@ -125,8 +135,14 @@ class _AuthedHomeState extends State<_AuthedHome> {
         selectedIndex: _tab,
         onDestinationSelected: (i) => setState(() => _tab = i),
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.map_outlined), selectedIcon: Icon(Icons.map), label: "Map"),
-          NavigationDestination(icon: Icon(Icons.report_outlined), selectedIcon: Icon(Icons.report), label: "Report"),
+          NavigationDestination(
+              icon: Icon(Icons.map_outlined),
+              selectedIcon: Icon(Icons.map),
+              label: "Map"),
+          NavigationDestination(
+              icon: Icon(Icons.report_outlined),
+              selectedIcon: Icon(Icons.report),
+              label: "Report"),
         ],
       ),
       floatingActionButton: _tab == 0
