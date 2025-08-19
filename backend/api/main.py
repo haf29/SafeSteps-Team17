@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routes import zones, incident, user
+from routes import zones, incident, user, route
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -20,6 +20,7 @@ app.add_middleware(
 app.include_router(zones.router)
 app.include_router(incident.router)
 app.include_router(user.router)
+app.include_router(route.router)
 
 @app.get("/healthz")
 def healthz():
