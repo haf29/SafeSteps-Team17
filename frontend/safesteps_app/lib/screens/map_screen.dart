@@ -4,9 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
+
 import '../services/hive_service.dart';
 import '../models/hex_zone_model.dart';
-import 'package:http/http.dart' as http;
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -19,10 +20,12 @@ class _MapScreenState extends State<MapScreen> {
   Position? currentPosition;
   List<Polygon> polygons = [];
   List<Marker> markers = [];
-  final double _defaultZoom = 9.0;
+  final double _defaultZoom = 9.0; // reserved if you want to use later
   bool _loading = true;
   Timer? _colorTimer;
-  final String backendUrl = "http://localhost:8000";
+
+  /// For direct HTTP calls from this screen (HiveService already uses 127.0.0.1)
+  final String backendUrl = 'http://127.0.0.1:8000';
 
   @override
   void initState() {
@@ -39,107 +42,137 @@ class _MapScreenState extends State<MapScreen> {
   Future<void> initMap() async {
     await HiveService.initHive();
 
+    // Try cached zones first
     final cachedZones = HiveService.loadZones();
     if (cachedZones.isNotEmpty) {
       setState(() {
-        polygons = cachedZones.map((z) => z.toPolygon()).toList();
+        polygons = cachedZones.map(_hexToPolygon).toList();
         _loading = false;
       });
     } else {
+      // Warmup (bulk) if cache empty
       await _fetchAllZones();
     }
 
-    _getCurrentLocation();
+    // Get GPS and refresh current city
+    await _getCurrentLocation();
 
-    // auto-refresh colors
+    // Periodic refresh of current city severities/colors
     _colorTimer = Timer.periodic(const Duration(minutes: 5), (timer) async {
-      await HiveService.updateColorsFromBackend(backendUrl);
-      final updatedZones = HiveService.loadZones();
+      if (currentPosition == null) return;
+      await HiveService.refreshCityByLatLng(
+        currentPosition!.latitude,
+        currentPosition!.longitude,
+      );
+      final updated = HiveService.loadZones();
       setState(() {
-        polygons = updatedZones.map((z) => z.toPolygon()).toList();
+        polygons = updated.map(_hexToPolygon).toList();
       });
     });
   }
 
   Future<void> _fetchAllZones() async {
     try {
-      final response = await http.get(Uri.parse('$backendUrl/all_zones'));
+      final response =
+          await http.get(Uri.parse('$backendUrl/hex_zones_lebanon'));
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = jsonDecode(response.body);
-        final List<HexZone> zones = (data['zones'] as List).map<HexZone>((z) {
-          return HexZone(
-            zoneId: z['zone_id'],
-            boundary: List<List<double>>.from(z['boundary']),
-            colorValue: int.parse('0xFF${z['color'].replaceAll("#", "")}'),
-          );
-        }).toList();
+        final List<HexZone> zones = (data['zones'] as List)
+            .map<HexZone>((z) => HexZone(
+                  zoneId: z['zone_id'] as String,
+                  boundary: (z['boundary'] as List?)
+                          ?.map<List<double>>(
+                              (p) => (p as List).map((x) => (x as num).toDouble()).toList())
+                          .toList() ??
+                      const <List<double>>[],
+                  colorValue: int.parse(
+                      '0xFF${(z['color'] as String? ?? '#00FF00').replaceAll("#", "")}'),
+                  score: (z['score'] as num?)?.toDouble() ?? 0.0,
+                  city: (z['city'] as String?) ?? '',
+                ))
+            .toList();
 
         await HiveService.saveZones(zones);
         setState(() {
-          polygons = zones.map((z) => z.toPolygon()).toList();
+          polygons = zones.map(_hexToPolygon).toList();
           _loading = false;
         });
+      } else {
+        setState(() => _loading = false);
       }
     } catch (e) {
-      print("Error fetching all zones: $e");
+      debugPrint('Error fetching all zones: $e');
       setState(() => _loading = false);
     }
   }
 
   Future<void> _getCurrentLocation() async {
     try {
-      Position position = await Geolocator.getCurrentPosition(
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      final pos = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
+
+      setState(() => currentPosition = pos);
+
+      // Refresh the severities for the user's current city
+      await HiveService.refreshCityByLatLng(pos.latitude, pos.longitude);
+
+      // Update polygons after refresh
+      final updated = HiveService.loadZones();
       setState(() {
-        currentPosition = position;
-        markers = [
-          Marker(
-            width: 40,
-            height: 40,
-            point: LatLng(position.latitude, position.longitude),
-            child: const Icon(Icons.arrow_drop_up, size: 40, color: Colors.red),
-          ),
-        ];
+        polygons = updated.map(_hexToPolygon).toList();
       });
     } catch (e) {
-      print("Error getting location: $e");
+      debugPrint('Location error: $e');
     }
+  }
+
+  Polygon _hexToPolygon(HexZone z) {
+    final pts = z.boundary.map((p) => LatLng(p[0], p[1])).toList();
+    final color = Color(z.colorValue);
+    return Polygon(
+      points: pts,
+      // some versions of flutter_map don't support `isFilled`; fill is implied via color opacity
+      color: color.withOpacity(0.35),
+      borderColor: color.withOpacity(0.9),
+      borderStrokeWidth: 1.0,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('Lebanon Hex Map'),
-          backgroundColor: Colors.indigo,
-        ),
-        body: _loading || currentPosition == null
-            ? const Center(child: CircularProgressIndicator())
-            : FlutterMap(
-                options: MapOptions(
-                  initialCenter: LatLng(
-                    currentPosition!.latitude,
-                    currentPosition!.longitude,
-                  ), // Center on user
-                  initialZoom: 13.0, // Closer zoom when user is found
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Lebanon Hex Map'),
+        backgroundColor: Colors.indigo,
+      ),
+      body: _loading || currentPosition == null
+          ? const Center(child: CircularProgressIndicator())
+          : FlutterMap(
+              options: MapOptions(
+                initialCenter: LatLng(
+                  currentPosition!.latitude,
+                  currentPosition!.longitude,
                 ),
-                children: [
-                  TileLayer(
-                    urlTemplate:
-                        'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    subdomains: const ['a', 'b', 'c'],
-                    userAgentPackageName: 'com.example.safesteps_app',
-                  ),
-                  PolygonLayer(
-                    polygons: polygons,
-                  ),
-                  MarkerLayer(
-                    markers: markers,
-                  ),
-                ],
+                initialZoom: 13.0,
               ),
-      );
-    }
+              children: [
+                TileLayer(
+                  urlTemplate:
+                      'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  subdomains: const ['a', 'b', 'c'],
+                  userAgentPackageName: 'com.example.safesteps_app',
+                ),
+                PolygonLayer(polygons: polygons),
+                MarkerLayer(markers: markers),
+              ],
+            ),
+    );
+  }
 }
-

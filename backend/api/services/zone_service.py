@@ -3,7 +3,7 @@ import json
 from shapely.geometry import shape
 import os
 import json
-from typing import List, Dict
+from typing import List, Dict, Any 
 from pathlib import Path
 from shapely.geometry import Point, shape
 
@@ -100,3 +100,53 @@ def get_cities() -> list[str]:
     Cached so it’s effectively free after first call.
     """
     return sorted({f["name"] for f in _CITY_FEATS})
+def _make_zone_payload(item: Dict[str, Any]) -> Dict[str, Any]:
+    """Uniform payload builder for a single Zone row."""
+    zid = item["zone_id"]
+    sev = float(item.get("severity", 0.0))
+    boundary = _parse_boundary(item.get("boundary"))
+
+    # Fallbacks if boundary wasn't pre-warmed
+    if not boundary:
+        cached = get_boundary_for_hex(zid)            # optional DB cache layer
+        boundary = cached or get_hex_boundary(zid)    # compute from H3 if needed
+        try:
+            # Persist for next time (avoid Decimal issues -> store JSON string)
+            put_boundary_for_hex(zid, boundary, item.get("boundary_res", 9))
+        except Exception:
+            pass  # non-fatal
+
+    from services.severity import categorize_score
+    return {
+        "zone_id": zid,
+        "boundary": boundary or [],
+        "score": sev,
+        "color": categorize_score(sev),
+    }
+
+def get_all_lebanon_zones(*, page_limit: int = 1000, include_city: bool = True) -> Dict[str, Any]:
+    """
+    Return all zones for every city listed in cities.json.
+    Uses precomputed severity/boundary if available; otherwise computes boundary and stores it.
+
+    Response shape:
+    {
+      "cities": [...],
+      "zones": [
+        { "zone_id": "...", "boundary": [...], "score": 2.3, "color": "#A9D18E", "city": "Beirut" },
+        ...
+      ]
+    }
+    """
+    cities = get_cities()
+    out: List[Dict[str, Any]] = []
+
+    for city in cities:
+        rows = get_city_items_all(city, page_limit=page_limit)  # paged under the hood
+        for it in rows:
+            zone_payload = _make_zone_payload(it)
+            if include_city:
+                zone_payload["city"] = city
+            out.append(zone_payload)
+
+    return {"cities": cities, "zones": out} 

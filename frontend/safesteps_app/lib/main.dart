@@ -1,21 +1,35 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+
+import 'models/hex_zone_model.dart';
+import 'services/hive_service.dart';
 
 import 'screens/login_screen.dart';
 import 'screens/signup_screen.dart';
 import 'screens/confirm_screen.dart';
 import 'screens/map_screen.dart';
 import 'screens/report_screen.dart';
-import 'package:hive_flutter/hive_flutter.dart';
-import 'models/hex_zone_model.dart';
 
 // ADD THIS IMPORT so references to AuthApi compile:
 import 'services/auth_api.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   await Hive.initFlutter();
-  Hive.registerAdapter(HexZoneAdapter());
+  if (!Hive.isAdapterRegistered(0)) {
+    Hive.registerAdapter(HexZoneAdapter());
+  }
+  await HiveService.initHive();
+
+  // One-time bulk warmup (fills Hive if empty). Not fatal on failure.
+  try {
+    await HiveService.warmupAllLebanon();
+  } catch (e) {
+    // log or ignore
+  }
+
   runApp(const MyApp());
 }
 
@@ -41,6 +55,8 @@ class MyApp extends StatelessWidget {
     );
   }
 }
+
+// ===== your auth-aware app remains unchanged below =====
 
 class SafeStepsApp extends StatefulWidget {
   const SafeStepsApp({super.key});
@@ -109,7 +125,6 @@ class _AuthedHomeState extends State<_AuthedHome> {
   Future<void> _logout() async {
     await AuthApi.logout();
     if (!mounted) return;
-    // Clear stack and go to login
     Navigator.of(context).pushNamedAndRemoveUntil("/login", (r) => false);
   }
 
