@@ -1,13 +1,11 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:http/http.dart' as http;
+import 'package:latlong2/latlong.dart';
 
-import '../services/hive_service.dart';
 import '../models/hex_zone_model.dart';
+import '../services/hive_service.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -17,162 +15,335 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> {
-  Position? currentPosition;
-  List<Polygon> polygons = [];
-  List<Marker> markers = [];
-  final double _defaultZoom = 9.0; // reserved if you want to use later
-  bool _loading = true;
-  Timer? _colorTimer;
+  final MapController _mapController = MapController();
 
-  /// For direct HTTP calls from this screen (HiveService already uses 127.0.0.1)
-  final String backendUrl = 'http://127.0.0.1:8000';
+  Position? _currentPosition;
+  StreamSubscription<Position>? _posSub;
+
+  // All zones cached from Hive (do not render all at once)
+  List<HexZone> _allZones = [];
+
+  // Only polygons inside the viewport are rendered
+  List<Polygon> _visiblePolygons = [];
+
+  final List<Marker> _markers = [];
+
+  bool _preparing = false; // first-run warmup overlay
+  Timer? _periodicCityRefresh;
+
+  // Debounce map movement updates so we don’t thrash
+  Timer? _viewDebounce;
 
   @override
   void initState() {
     super.initState();
-    initMap();
+    _initFlow();
   }
 
   @override
   void dispose() {
-    _colorTimer?.cancel();
+    _periodicCityRefresh?.cancel();
+    _posSub?.cancel();
+    _viewDebounce?.cancel();
     super.dispose();
   }
 
-  Future<void> initMap() async {
+  Future<void> _initFlow() async {
     await HiveService.initHive();
 
-    // Try cached zones first
-    final cachedZones = HiveService.loadZones();
-    if (cachedZones.isNotEmpty) {
-      setState(() {
-        polygons = cachedZones.map(_hexToPolygon).toList();
-        _loading = false;
-      });
-    } else {
-      // Warmup (bulk) if cache empty
-      await _fetchAllZones();
+    // FIRST RUN ONLY: block on warmup so we save all polygons once
+    if (!HiveService.isWarmupDone) {
+      setState(() => _preparing = true);
+      try {
+        await HiveService.warmupAllLebanon();
+      } finally {
+        if (mounted) setState(() => _preparing = false);
+      }
     }
 
-    // Get GPS and refresh current city
-    await _getCurrentLocation();
+    // Load everything from Hive (fast)
+    _allZones = HiveService.loadZones();
 
-    // Periodic refresh of current city severities/colors
-    _colorTimer = Timer.periodic(const Duration(minutes: 5), (timer) async {
-      if (currentPosition == null) return;
+    // Compute initial visible set after map gets its size/camera
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateVisiblePolys());
+
+    // Get location & quick per-city refresh (updates colors, not boundaries)
+    await _acquireLocationOnceAndRefreshCity();
+
+    // Subscribe to location updates (move red dot)
+    _subscribeToLocation();
+
+    // Periodic city refresh (lightweight; won’t redraw all)
+    _periodicCityRefresh =
+        Timer.periodic(const Duration(minutes: 5), (_) async {
+      if (_currentPosition == null) return;
       await HiveService.refreshCityByLatLng(
-        currentPosition!.latitude,
-        currentPosition!.longitude,
+        _currentPosition!.latitude,
+        _currentPosition!.longitude,
       );
-      final updated = HiveService.loadZones();
-      setState(() {
-        polygons = updated.map(_hexToPolygon).toList();
-      });
+      // Reload zones (colors may have changed)
+      _allZones = HiveService.loadZones();
+      _updateVisiblePolys(); // recompute for current bounds
     });
   }
 
-  Future<void> _fetchAllZones() async {
+  Future<void> _acquireLocationOnceAndRefreshCity() async {
     try {
-      final response =
-          await http.get(Uri.parse('$backendUrl/hex_zones_lebanon'));
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> data = jsonDecode(response.body);
-        final List<HexZone> zones = (data['zones'] as List)
-            .map<HexZone>((z) => HexZone(
-                  zoneId: z['zone_id'] as String,
-                  boundary: (z['boundary'] as List?)
-                          ?.map<List<double>>(
-                              (p) => (p as List).map((x) => (x as num).toDouble()).toList())
-                          .toList() ??
-                      const <List<double>>[],
-                  colorValue: int.parse(
-                      '0xFF${(z['color'] as String? ?? '#00FF00').replaceAll("#", "")}'),
-                  score: (z['score'] as num?)?.toDouble() ?? 0.0,
-                  city: (z['city'] as String?) ?? '',
-                ))
-            .toList();
-
-        await HiveService.saveZones(zones);
-        setState(() {
-          polygons = zones.map(_hexToPolygon).toList();
-          _loading = false;
-        });
-      } else {
-        setState(() => _loading = false);
-      }
-    } catch (e) {
-      debugPrint('Error fetching all zones: $e');
-      setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _getCurrentLocation() async {
-    try {
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        permission = await Geolocator.requestPermission();
+      var perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied ||
+          perm == LocationPermission.deniedForever) {
+        perm = await Geolocator.requestPermission();
       }
 
       final pos = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
+      _currentPosition = pos;
 
-      setState(() => currentPosition = pos);
-
-      // Refresh the severities for the user's current city
+      // Refresh just this city; boundaries should already exist from warmup
       await HiveService.refreshCityByLatLng(pos.latitude, pos.longitude);
 
-      // Update polygons after refresh
-      final updated = HiveService.loadZones();
-      setState(() {
-        polygons = updated.map(_hexToPolygon).toList();
-      });
+      _allZones = HiveService.loadZones();
+      _updateYouAreHereMarker();
+
+      // Center on user once
+      _moveMap(LatLng(pos.latitude, pos.longitude), 13.0);
     } catch (e) {
       debugPrint('Location error: $e');
     }
   }
 
-  Polygon _hexToPolygon(HexZone z) {
-    final pts = z.boundary.map((p) => LatLng(p[0], p[1])).toList();
-    final color = Color(z.colorValue);
-    return Polygon(
-      points: pts,
-      // some versions of flutter_map don't support `isFilled`; fill is implied via color opacity
-      color: color.withOpacity(0.35),
-      borderColor: color.withOpacity(0.9),
-      borderStrokeWidth: 1.0,
+  void _subscribeToLocation() {
+    final settings = const LocationSettings(
+      accuracy: LocationAccuracy.high,
+      distanceFilter: 10,
     );
+    _posSub =
+        Geolocator.getPositionStream(locationSettings: settings).listen((pos) {
+      _currentPosition = pos;
+      _updateYouAreHereMarker();
+      setState(() {}); // marker moved
+    }, onError: (e) {
+      debugPrint('Position stream error: $e');
+    });
+  }
+
+  // ---- Viewport filtering ----
+  void _updateVisiblePolys() {
+    final cam = _mapController.camera;
+    final bounds = cam.visibleBounds; // current viewport
+
+    // Only keep hexes whose centroid falls inside the bounds
+    final List<Polygon> polys = [];
+    for (final z in _allZones) {
+      if (z.boundary.isEmpty) continue;
+
+      // centroid (simple average; good enough for small hex)
+      double latSum = 0, lngSum = 0;
+      for (final p in z.boundary) {
+        latSum += p[0];
+        lngSum += p[1];
+      }
+      final c = LatLng(latSum / z.boundary.length, lngSum / z.boundary.length);
+      if (!bounds.contains(c)) continue;
+
+      final poly = _toPolygon(z);
+      if (poly != null) polys.add(poly);
+    }
+
+    setState(() => _visiblePolygons = polys);
+  }
+
+  // Debounce view updates during pan/zoom
+  void _onMapEvent(MapEvent e) {
+    if (e is! MapEventMove && e is! MapEventScrollWheelZoom) return;
+    _viewDebounce?.cancel();
+    _viewDebounce = Timer(const Duration(milliseconds: 120), _updateVisiblePolys);
+  }
+
+  // ---------------- Rendering helpers ----------------
+  void _updateYouAreHereMarker() {
+    _markers.removeWhere((m) => m.key == const ValueKey('me'));
+    if (_currentPosition == null) return;
+
+    final here = LatLng(_currentPosition!.latitude, _currentPosition!.longitude);
+    _markers.add(
+      Marker(
+        key: const ValueKey('me'),
+        point: here,
+        width: 80,
+        height: 60,
+        alignment: Alignment.topCenter,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.65),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text(
+                'You are here',
+                style: TextStyle(color: Colors.white, fontSize: 12),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Container(
+              width: 14,
+              height: 14,
+              decoration: const BoxDecoration(
+                color: Colors.red,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(color: Colors.black26, blurRadius: 6, spreadRadius: 1)
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _moveMap(LatLng center, double zoom) {
+    try {
+      final cam = _mapController.camera;
+      _mapController.move(cam.center != null ? center : center, zoom);
+    } catch (_) {}
+  }
+
+  Polygon? _toPolygon(HexZone z) {
+    if (z.boundary.isEmpty) return null;
+    try {
+      final pts = z.boundary.map((p) => LatLng(p[0], p[1])).toList();
+      if (pts.length < 5 || pts.length > 8) return null; // hex-ish guard
+      final color = Color(z.colorValue);
+      return Polygon(
+        points: pts,
+        color: color.withOpacity(0.35),
+        borderColor: color.withOpacity(0.9),
+        borderStrokeWidth: 1.0,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _zoomIn() {
+    final cam = _mapController.camera;
+    _mapController.move(cam.center, (cam.zoom + 1).clamp(2.0, 20.0));
+  }
+
+  void _zoomOut() {
+    final cam = _mapController.camera;
+    _mapController.move(cam.center, (cam.zoom - 1).clamp(2.0, 20.0));
   }
 
   @override
   Widget build(BuildContext context) {
+    final hasPos = _currentPosition != null;
+    final center = hasPos
+        ? LatLng(_currentPosition!.latitude, _currentPosition!.longitude)
+        : const LatLng(33.8886, 35.4955); // Beirut default
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Lebanon Hex Map'),
         backgroundColor: Colors.indigo,
       ),
-      body: _loading || currentPosition == null
-          ? const Center(child: CircularProgressIndicator())
-          : FlutterMap(
-              options: MapOptions(
-                initialCenter: LatLng(
-                  currentPosition!.latitude,
-                  currentPosition!.longitude,
-                ),
-                initialZoom: 13.0,
+      body: Stack(
+        children: [
+          FlutterMap(
+            mapController: _mapController,
+            options: MapOptions(
+              initialCenter: center,
+              initialZoom: 12.0,
+              interactionOptions:
+                  const InteractionOptions(flags: InteractiveFlag.all),
+              onMapReady: () {
+                // compute visible set once the widget laid out
+                _updateVisiblePolys();
+              },
+              onMapEvent: _onMapEvent, // debounce filtering on pan/zoom
+            ),
+            children: [
+              TileLayer(
+                urlTemplate:
+                    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                subdomains: const ['a', 'b', 'c'],
+                userAgentPackageName: 'com.example.safesteps_app',
               ),
-              children: [
-                TileLayer(
-                  urlTemplate:
-                      'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  subdomains: const ['a', 'b', 'c'],
-                  userAgentPackageName: 'com.example.safesteps_app',
+              PolygonLayer(
+                polygons: _visiblePolygons,
+                // polygonCulling: true, // optional if your flutter_map supports it
+              ),
+              MarkerLayer(markers: _markers),
+            ],
+          ),
+
+          // First-run warmup overlay
+          if (_preparing)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black38,
+                child: const Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 12),
+                      Text(
+                        'Preparing map… (first run only)',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ],
+                  ),
                 ),
-                PolygonLayer(polygons: polygons),
-                MarkerLayer(markers: markers),
+              ),
+            ),
+
+          // Zoom buttons
+          Positioned(
+            right: 12,
+            bottom: 24,
+            child: Column(
+              children: [
+                FloatingActionButton.small(
+                  heroTag: 'zoom_in',
+                  onPressed: _zoomIn,
+                  child: const Icon(Icons.add),
+                ),
+                const SizedBox(height: 8),
+                FloatingActionButton.small(
+                  heroTag: 'zoom_out',
+                  onPressed: _zoomOut,
+                  child: const Icon(Icons.remove),
+                ),
               ],
             ),
+          ),
+
+          // Recenter
+          Positioned(
+            right: 12,
+            top: 12,
+            child: FloatingActionButton(
+              heroTag: 'locate_me',
+              mini: true,
+              onPressed: () {
+                if (_currentPosition == null) return;
+                final me = LatLng(
+                  _currentPosition!.latitude,
+                  _currentPosition!.longitude,
+                );
+                _moveMap(me, _mapController.camera.zoom);
+              },
+              child: const Icon(Icons.my_location),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

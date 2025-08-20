@@ -11,24 +11,22 @@ import 'screens/confirm_screen.dart';
 import 'screens/map_screen.dart';
 import 'screens/report_screen.dart';
 
-// ADD THIS IMPORT so references to AuthApi compile:
+// Auth API you already use
 import 'services/auth_api.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Local storage init
   await Hive.initFlutter();
   if (!Hive.isAdapterRegistered(0)) {
-    Hive.registerAdapter(HexZoneAdapter());
+    Hive.registerAdapter(HexZoneAdapter()); // from hex_zone_model.g.dart
   }
+  // Open boxes (no network, very fast)
   await HiveService.initHive();
 
-  // One-time bulk warmup (fills Hive if empty). Not fatal on failure.
-  try {
-    await HiveService.warmupAllLebanon();
-  } catch (e) {
-    // log or ignore
-  }
+  // IMPORTANT: Do NOT warmup here. We want login to appear immediately.
+  // MapScreen will trigger warmupAllLebanonIfNeeded() in the background later.
 
   runApp(const MyApp());
 }
