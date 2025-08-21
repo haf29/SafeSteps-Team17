@@ -28,7 +28,8 @@ void main() async {
   // IMPORTANT: Do NOT warmup here. We want login to appear immediately.
   // MapScreen will trigger warmupAllLebanonIfNeeded() in the background later.
 
-  runApp(const MyApp());
+  // ✅ start the auth-aware app so existing sessions skip /login
+  runApp(const SafeStepsApp());
 }
 
 class MyApp extends StatelessWidget {
