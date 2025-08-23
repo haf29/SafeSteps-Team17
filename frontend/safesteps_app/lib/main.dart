@@ -1,5 +1,9 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+
+import 'models/hex_zone_model.dart';
+import 'services/hive_service.dart';
 
 import 'screens/login_screen.dart';
 import 'screens/signup_screen.dart';
@@ -7,8 +11,25 @@ import 'screens/confirm_screen.dart';
 import 'screens/map_screen.dart';
 import 'screens/report_screen.dart';
 
-void main() {
-  runApp(const MyApp());
+// Auth API you already use
+import 'services/auth_api.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Local storage init
+  await Hive.initFlutter();
+  if (!Hive.isAdapterRegistered(0)) {
+    Hive.registerAdapter(HexZoneAdapter()); // from hex_zone_model.g.dart
+  }
+  // Open boxes (no network, very fast)
+  await HiveService.initHive();
+
+  // IMPORTANT: Do NOT warmup here. We want login to appear immediately.
+  // MapScreen will trigger warmupAllLebanonIfNeeded() in the background later.
+
+  // ✅ start the auth-aware app so existing sessions skip /login
+  runApp(const SafeStepsApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -26,13 +47,15 @@ class MyApp extends StatelessWidget {
       routes: {
         '/login': (_) => const LoginScreen(),
         '/signup': (_) => const SignUpScreen(),
-        '/confirm': (_) => const ConfirmScreen(), // or ConfirmCodeScreen if that’s your class name
+        '/confirm': (_) => const ConfirmScreen(),
         '/map': (_) => const MapScreen(),
         '/report': (_) => const ReportScreen(),
       },
     );
   }
 }
+
+// ===== your auth-aware app remains unchanged below =====
 
 class SafeStepsApp extends StatefulWidget {
   const SafeStepsApp({super.key});
@@ -79,7 +102,9 @@ class _SafeStepsAppState extends State<SafeStepsApp> {
             );
           }
           final isIn = snap.data == true;
-          return isIn ? const _AuthedHome() : LoginScreen(onAuthenticated: _refreshAuth);
+          return isIn
+              ? const _AuthedHome()
+              : LoginScreen(onAuthenticated: _refreshAuth);
         },
       ),
     );
@@ -99,7 +124,6 @@ class _AuthedHomeState extends State<_AuthedHome> {
   Future<void> _logout() async {
     await AuthApi.logout();
     if (!mounted) return;
-    // Clear stack and go to login
     Navigator.of(context).pushNamedAndRemoveUntil("/login", (r) => false);
   }
 
@@ -125,8 +149,14 @@ class _AuthedHomeState extends State<_AuthedHome> {
         selectedIndex: _tab,
         onDestinationSelected: (i) => setState(() => _tab = i),
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.map_outlined), selectedIcon: Icon(Icons.map), label: "Map"),
-          NavigationDestination(icon: Icon(Icons.report_outlined), selectedIcon: Icon(Icons.report), label: "Report"),
+          NavigationDestination(
+              icon: Icon(Icons.map_outlined),
+              selectedIcon: Icon(Icons.map),
+              label: "Map"),
+          NavigationDestination(
+              icon: Icon(Icons.report_outlined),
+              selectedIcon: Icon(Icons.report),
+              label: "Report"),
         ],
       ),
       floatingActionButton: _tab == 0

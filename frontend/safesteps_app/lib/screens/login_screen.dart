@@ -1,84 +1,134 @@
-
-
-import 'package:flutter/material.dart';
 // lib/screens/login_screen.dart
-import '../services/Auth_api.dart';  // <-- fix path;
+import 'package:flutter/material.dart';
+import '../services/auth_api.dart';
+import '../widgets/auth_shell.dart';
+import '../widgets/brand_button.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({super.key, this.onAuthenticated});
+  final VoidCallback? onAuthenticated;
+
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _formKey = GlobalKey<FormState>();
+  final _form = GlobalKey<FormState>();
   final _email = TextEditingController();
   final _password = TextEditingController();
+
+  bool _busy = false;
   bool _obscure = true;
-  bool _loading = false;
+  String? _error;
 
   @override
-  void dispose() { _email.dispose(); _password.dispose(); super.dispose(); }
+  void dispose() {
+    _email.dispose();
+    _password.dispose();
+    super.dispose();
+  }
+
+  String _friendlyError(Object e) {
+    final s = e.toString();
+    if (s.contains('User not confirmed')) {
+      return 'Please confirm your email. Go to “Confirm” and use Resend if needed.';
+    }
+    if (s.contains('Incorrect username or password')) {
+      return 'Email or password is incorrect.';
+    }
+    if (s.contains("Can't reach the server")) {
+      return "Can't reach the server. Make sure the backend is running and CORS allows this origin.";
+    }
+    return 'Could not sign in: $s';
+    }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
-    setState(() => _loading = true);
+    if (!_form.currentState!.validate()) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
     try {
-      await AuthService.signin(email: _email.text.trim(), password: _password.text);
+      await AuthApi.login(
+        email: _email.text.trim(),
+        password: _password.text,
+      );
+      widget.onAuthenticated?.call();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Logged in')));
-      Navigator.of(context).pop(); // or pushReplacementNamed to your home
+      // Clear stack and go to map (or your post-login home)
+      Navigator.of(context).pushNamedAndRemoveUntil('/map', (r) => false);
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      setState(() => _error = _friendlyError(e));
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) setState(() => _busy = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Sign in')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
+      body: AuthShell(
+        title: 'Welcome back',
+        subtitle: 'Sign in to continue to SafeSteps',
         child: Form(
-          key: _formKey,
-          child: ListView(
+          key: _form,
+          child: Column(
             children: [
               TextFormField(
                 controller: _email,
-                decoration: const InputDecoration(labelText: 'Email', prefixIcon: Icon(Icons.email)),
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  prefixIcon: Icon(Icons.alternate_email),
+                ),
                 keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.next,
                 validator: (v) {
-                  final s = v?.trim() ?? '';
-                  if (s.isEmpty) return 'Email is required';
-                  final ok = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(s);
-                  if (!ok) return 'Enter a valid email';
+                  if (v == null || v.trim().isEmpty) return 'Enter your email';
+                  if (!v.contains('@')) return 'Enter a valid email';
                   return null;
                 },
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _password,
-                obscureText: _obscure,
                 decoration: InputDecoration(
-                  labelText: 'Password (min 8)',
-                  prefixIcon: const Icon(Icons.lock),
+                  labelText: 'Password',
+                  prefixIcon: const Icon(Icons.lock_outline),
                   suffixIcon: IconButton(
-                    icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
                     onPressed: () => setState(() => _obscure = !_obscure),
+                    icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
                   ),
                 ),
-                validator: (v) => (v ?? '').length < 8 ? 'Must be at least 8 characters' : null,
+                obscureText: _obscure,
+                onFieldSubmitted: (_) => _busy ? null : _submit(),
+                validator: (v) {
+                  if (v == null || v.isEmpty) return 'Enter your password';
+                  if (v.length < 8) return 'At least 8 characters';
+                  return null;
+                },
               ),
-              const SizedBox(height: 24),
-              ElevatedButton.icon(
-                onPressed: _loading ? null : _submit,
-                icon: const Icon(Icons.login),
-                label: _loading
-                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Text('Sign in'),
+              const SizedBox(height: 8),
+              if (_error != null)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    _error!,
+                    style: const TextStyle(color: Colors.red),
+                  ),
+                ),
+              const SizedBox(height: 14),
+              BrandButton(
+                label: _busy ? 'Signing in…' : 'Sign In',
+                icon: Icons.login,
+                busy: _busy,
+                onPressed: _busy ? null : _submit,
+              ),
+              const SizedBox(height: 10),
+              TextButton(
+                onPressed: _busy
+                    ? null
+                    : () => Navigator.of(context).pushNamed('/signup'),
+                child: const Text("Don't have an account? Create one"),
               ),
             ],
           ),

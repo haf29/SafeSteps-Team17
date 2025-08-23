@@ -1,10 +1,12 @@
-import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:http/http.dart' as http;
+import 'package:latlong2/latlong.dart';
+
+import '../models/hex_zone_model.dart';
+import '../services/hive_service.dart';
+import 'report_screen.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -13,193 +15,342 @@ class MapScreen extends StatefulWidget {
   State<MapScreen> createState() => _MapScreenState();
 }
 
-class _MapScreenState extends State<MapScreen> {
-  Position? currentPosition;
-  List<Marker> markers = [];
-  List<Polygon> polygons = [];
-  final double _defaultZoom = 14.0;
-  bool _loading = true;
-  bool _backendError = false; // Track if backend failed
+class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
+  final MapController _mapController = MapController();
 
-  // Backend URL
-  final String backendUrl = "http://localhost:8000";
+  Position? _currentPosition;
+  StreamSubscription<Position>? _posSub;
+
+  List<HexZone> _allZones = [];
+  List<Polygon> _visiblePolygons = [];
+  final List<Marker> _markers = [];
+
+  bool _preparing = false;
+  Timer? _periodicCityRefresh;
+  Timer? _viewDebounce;
+
+  late AnimationController _pulse;
+  late Animation<double> _glowAnim;
 
   @override
   void initState() {
     super.initState();
-    _getCurrentLocation();
+    _initFlow();
+
+    // 👇 glowing animation
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat(reverse: true);
+    _glowAnim = Tween<double>(begin: 0.25, end: 0.55).animate(_pulse);
   }
 
-  /// Get current user location
-  Future<void> _getCurrentLocation() async {
-    setState(() {
-      _loading = true;
-      _backendError = false;
-    });
+  @override
+  void dispose() {
+    _periodicCityRefresh?.cancel();
+    _posSub?.cancel();
+    _viewDebounce?.cancel();
+    _pulse.dispose();
+    super.dispose();
+  }
 
-    var permission = await Permission.location.request();
+  Future<void> _initFlow() async {
+    await HiveService.initHive();
 
-    if (permission.isGranted) {
+    if (!HiveService.isWarmupDone) {
+      setState(() => _preparing = true);
       try {
-        Position position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high,
-        );
-
-        setState(() {
-          currentPosition = position;
-          markers = [
-            Marker(
-              width: 80.0,
-              height: 80.0,
-              point: LatLng(position.latitude, position.longitude),
-              child: const Icon(Icons.location_on, color: Colors.red, size: 40),
-            ),
-          ];
-        });
-
-        // Only after we get location, fetch zones
-        await _fetchHexZones(position.latitude, position.longitude);
-      } catch (e) {
-        print('Error getting location: $e');
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error getting location: $e')));
-        setState(() => _loading = false);
+        await HiveService.warmupAllLebanon();
+      } finally {
+        if (mounted) setState(() => _preparing = false);
       }
-    } else {
-      setState(() => _loading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Location permission denied')),
+    }
+
+    _allZones = HiveService.loadZones();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateVisiblePolys());
+
+    await _acquireLocationOnceAndRefreshCity();
+    _subscribeToLocation();
+
+    _periodicCityRefresh =
+        Timer.periodic(const Duration(minutes: 5), (_) async {
+      if (_currentPosition == null) return;
+      await HiveService.refreshCityByLatLng(
+        _currentPosition!.latitude,
+        _currentPosition!.longitude,
       );
+      _allZones = HiveService.loadZones();
+      _updateVisiblePolys();
+    });
+  }
+
+  Future<void> _acquireLocationOnceAndRefreshCity() async {
+    try {
+      var perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied ||
+          perm == LocationPermission.deniedForever) {
+        perm = await Geolocator.requestPermission();
+      }
+
+      final pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      _currentPosition = pos;
+
+      await HiveService.refreshCityByLatLng(pos.latitude, pos.longitude);
+
+      _allZones = HiveService.loadZones();
+      _updateYouAreHereMarker();
+      _moveMap(LatLng(pos.latitude, pos.longitude), 13.0);
+    } catch (e) {
+      debugPrint('Location error: $e');
     }
   }
 
-  /// Fetch hexagonal zones from FastAPI backend
-  Future<void> _fetchHexZones(double lat, double lng) async {
-    final url = Uri.parse('$backendUrl/hex_zones?lat=$lat&lng=$lng');
-    final response = await http.get(url);
+  void _subscribeToLocation() {
+    final settings = const LocationSettings(
+      accuracy: LocationAccuracy.high,
+      distanceFilter: 10,
+    );
+    _posSub =
+        Geolocator.getPositionStream(locationSettings: settings).listen((pos) {
+      _currentPosition = pos;
+      _updateYouAreHereMarker();
+      setState(() {}); // marker moved
+    }, onError: (e) {
+      debugPrint('Position stream error: $e');
+    });
+  }
 
-    if (response.statusCode == 200) {
-      final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
-      final List<dynamic> zonesData = jsonResponse['zones'];
-      
-      print('zones returned = ${zonesData.length}');
+  void _updateVisiblePolys() {
+    final cam = _mapController.camera;
+    final bounds = cam.visibleBounds;
 
+    final List<Polygon> polys = [];
+    for (final z in _allZones) {
+      if (z.boundary.isEmpty) continue;
 
-      List<Polygon> newPolygons = zonesData.map((hex) {
-        List<LatLng> points = (hex['boundary'] as List)
-            .map((coord) => LatLng(coord[1], coord[0]))
-            .toList();
+      double latSum = 0, lngSum = 0;
+      for (final p in z.boundary) {
+        latSum += p[0];
+        lngSum += p[1];
+      }
+      final c = LatLng(latSum / z.boundary.length, lngSum / z.boundary.length);
+      if (!bounds.contains(c)) continue;
 
-        String colorHex = hex['color'].replaceAll("#", "");
-        Color polygonColor = Color(int.parse("0xFF$colorHex"));
-
-        return Polygon(
-          points: points,
-          color: polygonColor.withOpacity(0.3),
-          borderColor: polygonColor,
-          borderStrokeWidth: 2,
-        );
-      }).toList();
-
-      setState(() {
-        polygons = newPolygons;
-        _loading = false; // Stop loading only after backend data arrives
-      });
-    } else {
-      print('Failed to fetch hex zones: ${response.statusCode}');
-      setState(() {
-        _backendError = true;
-        _loading = false;
-      });
+      final poly = _toPolygon(z);
+      if (poly != null) polys.add(poly);
     }
+
+    setState(() => _visiblePolygons = polys);
+  }
+
+  void _onMapEvent(MapEvent e) {
+    if (e is! MapEventMove && e is! MapEventScrollWheelZoom) return;
+    _viewDebounce?.cancel();
+    _viewDebounce = Timer(const Duration(milliseconds: 120), _updateVisiblePolys);
+  }
+
+  void _updateYouAreHereMarker() {
+    _markers.removeWhere((m) => m.key == const ValueKey('me'));
+    if (_currentPosition == null) return;
+
+    final here = LatLng(_currentPosition!.latitude, _currentPosition!.longitude);
+    _markers.add(
+      Marker(
+        key: const ValueKey('me'),
+        point: here,
+        width: 80,
+        height: 60,
+        alignment: Alignment.topCenter,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.65),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text(
+                'You are here',
+                style: TextStyle(color: Colors.white, fontSize: 12),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Container(
+              width: 14,
+              height: 14,
+              decoration: const BoxDecoration(
+                color: Colors.red,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(color: Colors.black26, blurRadius: 6, spreadRadius: 1)
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _moveMap(LatLng center, double zoom) {
+    try {
+      final cam = _mapController.camera;
+      _mapController.move(cam.center != null ? center : center, zoom);
+    } catch (_) {}
+  }
+
+  Polygon? _toPolygon(HexZone z) {
+    if (z.boundary.isEmpty) return null;
+    try {
+      final pts = z.boundary.map((p) => LatLng(p[0], p[1])).toList();
+      if (pts.length < 5 || pts.length > 8) return null;
+      final color = Color(z.colorValue);
+      return Polygon(
+        points: pts,
+        color: color.withOpacity(_glowAnim.value), // 👈 glowing opacity
+        borderColor: color.withOpacity(0.9),
+        borderStrokeWidth: 1.0,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _zoomIn() {
+    final cam = _mapController.camera;
+    _mapController.move(cam.center, (cam.zoom + 1).clamp(2.0, 20.0));
+  }
+
+  void _zoomOut() {
+    final cam = _mapController.camera;
+    _mapController.move(cam.center, (cam.zoom - 1).clamp(2.0, 20.0));
   }
 
   @override
   Widget build(BuildContext context) {
+    final hasPos = _currentPosition != null;
+    final center = hasPos
+        ? LatLng(_currentPosition!.latitude, _currentPosition!.longitude)
+        : const LatLng(33.8886, 35.4955);
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('SafeSteps Map'),
+        title: const Text('Lebanon Hex Map'),
         backgroundColor: Colors.indigo,
-        foregroundColor: Colors.white,
-        elevation: 6,
-        centerTitle: true,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(bottom: Radius.circular(18)),
-        ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12.0),
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 8,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-              ),
-              icon: const Icon(Icons.report, size: 20),
-              label: const Text("Report", style: TextStyle(fontSize: 16)),
-              onPressed: () {
-                Navigator.pushNamed(context, '/report');
-              },
-            ),
-          ),
-        ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _backendError
-          ? const Center(
-              child: Text(
-                "Failed to load data from backend.",
-                style: TextStyle(fontSize: 16, color: Colors.red),
-              ),
-            )
-          : currentPosition == null || polygons.isEmpty
-          ? const Center(child: Text("No map data available."))
-          : Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: FlutterMap(
-                  options: MapOptions(
-                    initialCenter: LatLng(
-                      currentPosition!.latitude,
-                      currentPosition!.longitude,
-                    ),
-                    initialZoom: _defaultZoom,
+      body: AnimatedBuilder(
+        animation: _glowAnim,
+        builder: (context, _) {
+          return Stack(
+            children: [
+              FlutterMap(
+                mapController: _mapController,
+                options: MapOptions(
+                  initialCenter: center,
+                  initialZoom: 12.0,
+                  interactionOptions:
+                      const InteractionOptions(flags: InteractiveFlag.all),
+                  onMapReady: _updateVisiblePolys,
+                  onMapEvent: _onMapEvent,
+                ),
+                children: [
+                  TileLayer(
+                    urlTemplate:
+                        'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    subdomains: const ['a', 'b', 'c'],
+                    userAgentPackageName: 'com.example.safesteps_app',
                   ),
-                  children: [
-                    TileLayer(
-                      urlTemplate:
-                          'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      subdomains: const ['a', 'b', 'c'],
-                      userAgentPackageName: 'com.example.safesteps_app',
+                  PolygonLayer(
+                    polygons: _visiblePolygons,
+                    polygonCulling: true, // 👈 fixes lag
+                  ),
+                  MarkerLayer(markers: _markers),
+                ],
+              ),
+
+              if (_preparing)
+                Positioned.fill(
+                  child: Container(
+                    color: Colors.black38,
+                    child: const Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CircularProgressIndicator(),
+                          SizedBox(height: 12),
+                          Text(
+                            'Preparing map… (first run only)',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ],
+                      ),
                     ),
-                    PolygonLayer(polygons: polygons),
-                    MarkerLayer(markers: markers),
+                  ),
+                ),
+
+              Positioned(
+                right: 12,
+                bottom: 24,
+                child: Column(
+                  children: [
+                    FloatingActionButton.small(
+                      heroTag: 'zoom_in',
+                      onPressed: _zoomIn,
+                      child: const Icon(Icons.add),
+                    ),
+                    const SizedBox(height: 8),
+                    FloatingActionButton.small(
+                      heroTag: 'zoom_out',
+                      onPressed: _zoomOut,
+                      child: const Icon(Icons.remove),
+                    ),
                   ],
                 ),
               ),
-            ),
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 12.0, right: 4.0),
-        child: Card(
-          elevation: 6,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(30),
-          ),
-          child: FloatingActionButton(
-            onPressed: _getCurrentLocation,
-            backgroundColor: Colors.indigo,
-            child: const Icon(Icons.my_location),
-          ),
-        ),
+
+              Positioned(
+                right: 12,
+                top: 12,
+                child: FloatingActionButton(
+                  heroTag: 'locate_me',
+                  mini: true,
+                  onPressed: () {
+                    if (_currentPosition == null) return;
+                    final me = LatLng(
+                      _currentPosition!.latitude,
+                      _currentPosition!.longitude,
+                    );
+                    _moveMap(me, _mapController.camera.zoom);
+                  },
+                  child: const Icon(Icons.my_location),
+                ),
+              ),
+
+              // 👇 NEW Report button
+              Positioned(
+                left: 12,
+                bottom: 24,
+                child: FloatingActionButton.extended(
+                  heroTag: 'report_page',
+                  backgroundColor: Colors.redAccent,
+                  icon: const Icon(Icons.report),
+                  label: const Text('Report'),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ReportScreen(),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
