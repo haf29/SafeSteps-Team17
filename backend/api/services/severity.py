@@ -1,24 +1,48 @@
 from __future__ import annotations
 from datetime import datetime, timezone
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Callable
 
 
 
 import h3  # type: ignore
+
     
 # Severity weights per incident type
-SEVERITY_WEIGHTS: Dict[str, float] = {
+SEVERITY_WEIGHTS: dict[str, float] = {
     "murder": 10.0,
     "assault": 7.0,
     "robbery": 5.5,
     "theft": 4.0,
     "harassment": 2.0,
     "vandalism": 2.5,
+    "drone_activity": 1.5,
+    "airstrike": 9.0,
+    "explosion": 6.5,
+    "shooting": 8.0,
+    "kidnapping": 7.5,
     "other": 1.0,
 }
 DEFAULT_WEIGHT = 1.0
 SCORE_CAP = 10.0
-
+try:
+    import h3  # h3>=4
+    _HAS_H3 = True
+    def _rings_by_distance(center: str, k: int):
+        # returns list-of-lists (distance 0..k)
+        return h3.k_ring_distances(center, k)
+except Exception:
+    try:
+        from h3 import h3 as h3v3  # old h3-py
+        _HAS_H3 = True
+        def _rings_by_distance(center: str, k: int):
+            # emulate k_ring_distances for v3
+            rings = [set([center])]
+            for dist in range(1, k + 1):
+                rings.append(h3v3.k_ring(center, dist) - set.union(*rings))
+            # Convert to list-of-sets to match v4-ish shape
+            return [list(r) for r in rings]
+    except Exception:
+        _HAS_H3 = False
 
 def _parse_ts(value: Any) -> Optional[datetime]:
     """
@@ -94,26 +118,27 @@ def find_nearest_safe_hex(
     *,
     safe_threshold: float = 3.0,
     max_rings: int = 3,
-    get_severity_by_hex=None,  # Callable[[str], Optional[float]]
+    get_severity_by_hex: Optional[Callable[[str], Optional[float]]] = None,
 ) -> Optional[str]:
     """
-    Find nearest hex whose latest severity <= safe_threshold.
-    Requires H3 for neighbor traversal. If H3 isn't available, returns None.
-
-    get_severity_by_hex: a function you can pass that returns severity for a hex
-                         (e.g., from Zones table). If not provided, this function
-                         will return None (to avoid coupling to DB here).
+    Find the nearest hex whose severity <= safe_threshold by expanding ring-by-ring.
+    You MUST pass `get_severity_by_hex(hex_id) -> Optional[float]`.
+    Returns the first qualifying neighbor in increasing ring distance, else None.
     """
-    if not  get_severity_by_hex is None:
+    # must have H3 available
+    if not _HAS_H3:
         return None
 
-    # ring distance 1..max_rings
-    for k in range(1, max_rings + 1):
-        ring = h3.k_ring(start_hex, k)
-        # k_ring includes inner rings; filter to those exactly k steps away
-        # (this keeps distance ordering stable). We can compute by excluding
-        # closer rings if needed, but for simplicity just iterate ring.
-        for neighbor in ring:
+    # you *must* pass a lookup, otherwise we can't score any hexes
+    if get_severity_by_hex is None:
+        return None
+
+    # distance-banded rings: index 0 is {start_hex}, then 1..max_rings are the shells we want
+    rings = _rings_by_distance(start_hex, max_rings)
+
+    # iterate outward, skipping distance 0 (the center)
+    for dist in range(1, min(max_rings, len(rings) - 1) + 1):
+        for neighbor in rings[dist]:
             sev = get_severity_by_hex(neighbor)
             if sev is not None and sev <= safe_threshold:
                 return neighbor

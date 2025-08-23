@@ -46,3 +46,26 @@ def point_to_hex(lat: float, lng: float, resolution: int = 9) -> str:
         return h3.geo_to_h3(lat, lng, resolution)
     except AttributeError:  # h3 >= 4.x
         return h3.latlng_to_cell(lat, lng, resolution)
+def hex_to_center(hex_id: str) -> tuple[float, float]:
+    """
+    Return (lat, lng) of the center of an H3 cell.
+    """
+    if not h3:
+        raise RuntimeError(
+            "h3 library is not installed. Install with: pip install h3"
+        )
+    # h3.h3_to_geo returns (lat, lng)
+    return h3.h3_to_geo(hex_id)
+
+
+def hex_boundary(hex_id: str) -> list[tuple[float, float]]:
+    """
+    Optional helper: boundary vertices as [(lat, lng), ...].
+    """
+    if not h3:
+        raise RuntimeError(
+            "h3 library is not installed. Install with: pip install h3"
+        )
+    # geo_boundary returns list of dicts in some versions, so normalize to tuples
+    verts = h3.h3_to_geo_boundary(hex_id)
+    return [(lat, lng) for (lat, lng) in verts]

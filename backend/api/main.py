@@ -5,22 +5,31 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import RedirectResponse
+import logging
+log = logging.getLogger("uvicorn.error")
+
+# --- Load .env early so os.getenv works everywhere ---
+try:
+    from dotenv import load_dotenv  # type: ignore
+    load_dotenv()  # loads backend/api/.env if present
+except Exception:
+    # If python-dotenv isn't installed, env vars must be set by the shell
+    pass
 
 app = FastAPI(
     title="SafeSteps API",
     version="1.0.0",
-    description="Backend for SafeSteps (auth, incidents, zones).",
+    description="Backend for SafeSteps (auth, incidents, zones, routing).",
 )
 
-# ---------------- CORS (fixes Flutter Web “Failed to fetch”) ----------------
-# DEV default is wide open. For production, set the CORS_ORIGINS env var to a
-# comma-separated list of allowed origins, e.g.:
-#   CORS_ORIGINS="https://yourapp.com,https://staging.yourapp.com"
+# ---------------- CORS (Flutter Web needs this) ----------------
+# For production, set CORS_ORIGINS to a comma-separated list (no spaces):
+#   CORS_ORIGINS=https://yourapp.com,https://staging.yourapp.com
 cors_env = os.getenv("CORS_ORIGINS")
 if cors_env:
     allow_origins = [o.strip() for o in cors_env.split(",") if o.strip()]
 else:
-    # Development: allow everything (OK for local testing)
+    # Dev default: allow everything
     allow_origins = ["*"]
 
 app.add_middleware(
@@ -31,46 +40,45 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ---------------- Include routers ----------------
+# ---------------- Routers ----------------
 # /user -> signup, confirm, resend-code, login
 from routes.user import router as user_router
-
 app.include_router(user_router)
 
-# /report_incident (and any incident-related routes)
+# /incident -> report & related endpoints (optional during early dev)
 try:
     from routes.incident import router as incident_router
-
     app.include_router(incident_router)
-except Exception:
-    # If the incident router isn’t present yet, ignore in dev.
-    pass
+except Exception as e:
+    log.exception("Failed to include incident router: %s", e)
 
-# Optional: zones router if you have it
+# /zones -> hex zones endpoints (optional)
 try:
     from routes.zones import router as zones_router
-
     app.include_router(zones_router)
-except Exception:
-    pass
+except Exception as e:
+    log.exception("Failed to include zones router: %s", e)
 
 
-# ---------------- Meta/utility endpoints ----------------
+# /route -> safest route, exit-to-safe, etc. (make sure services.routing exports the functions)
+try:
+    from routes.route import router as route_router
+    app.include_router(route_router)
+except Exception as e:
+    log.exception("Failed to include route router: %s", e)
+# ---------------- Meta/utility ----------------
 @app.get("/", include_in_schema=False)
-def root():
-    # Handy: visiting the root opens Swagger UI
+def root() -> RedirectResponse:
+    # Visiting the root opens Swagger UI
     return RedirectResponse(url="/docs")
-
 
 @app.get("/health", tags=["meta"])
 def health():
     return {"status": "ok"}
 
-
 # ---------------- Local dev entrypoint ----------------
 if __name__ == "__main__":
     import uvicorn
-
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
