@@ -82,6 +82,7 @@ class _SafeStepsAppState extends State<SafeStepsApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: "SafeSteps",
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
         useMaterial3: true,

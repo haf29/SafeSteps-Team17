@@ -40,6 +40,7 @@ def sign_up(user: UserSignUp) -> str:
             UserAttributes=[
                 {"Name": "email", "Value": user.email},
                 {"Name": "name",  "Value": user.full_name or ""},
+                 {"Name": "phone_number", "Value": user.phone}, 
             ],
         )
         return resp.get("UserSub", "")

@@ -1,4 +1,3 @@
-// lib/screens/signup_screen.dart
 import 'package:flutter/material.dart';
 import '../services/auth_api.dart';
 import '../widgets/auth_shell.dart';
@@ -17,6 +16,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   final _confirm = TextEditingController();
+  final _phone = TextEditingController();
 
   bool _busy = false;
   bool _obscure1 = true;
@@ -29,6 +29,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     _email.dispose();
     _password.dispose();
     _confirm.dispose();
+    _phone.dispose();
     super.dispose();
   }
 
@@ -51,20 +52,34 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   Future<void> _submit() async {
     if (!_form.currentState!.validate()) return;
-    setState(() { _busy = true; _error = null; });
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
     try {
+      final phoneNumber = '+961${_phone.text.trim()}'; // ✅ Always E.164 format
+
       final res = await AuthApi.signup(
         email: _email.text.trim(),
         password: _password.text,
         fullName: _name.text.trim().isEmpty ? null : _name.text.trim(),
+        phone: phoneNumber,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(res.message)));
-      Navigator.of(context).pushNamed('/confirm', arguments: _email.text.trim());
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(res.message)));
+      Navigator.of(context)
+          .pushNamed('/confirm', arguments: _email.text.trim());
     } catch (e) {
-      setState(() { _error = e.toString(); });
+      setState(() {
+        _error = e.toString();
+      });
     } finally {
-      if (mounted) setState(() { _busy = false; });
+      if (mounted) {
+        setState(() {
+          _busy = false;
+        });
+      }
     }
   }
 
@@ -93,7 +108,25 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   prefixIcon: Icon(Icons.alternate_email),
                 ),
                 keyboardType: TextInputType.emailAddress,
-                validator: (v) => (v == null || !v.contains('@')) ? 'Enter a valid email' : null,
+                validator: (v) =>
+                    (v == null || !v.contains('@')) ? 'Enter a valid email' : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _phone,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(
+                  labelText: 'Phone number',
+                  prefixText: '+961 ',
+                  prefixIcon: Icon(Icons.phone),
+                ),
+                validator: (v) {
+                  if (v == null || v.isEmpty) return 'Enter your phone number';
+                  if (v.length < 7 || v.length > 8) {
+                    return 'Enter a valid Lebanese phone number';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -103,7 +136,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   prefixIcon: const Icon(Icons.lock_outline),
                   suffixIcon: IconButton(
                     onPressed: () => setState(() => _obscure1 = !_obscure1),
-                    icon: Icon(_obscure1 ? Icons.visibility : Icons.visibility_off),
+                    icon: Icon(
+                        _obscure1 ? Icons.visibility : Icons.visibility_off),
                   ),
                 ),
                 obscureText: _obscure1,
@@ -117,11 +151,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   prefixIcon: const Icon(Icons.password),
                   suffixIcon: IconButton(
                     onPressed: () => setState(() => _obscure2 = !_obscure2),
-                    icon: Icon(_obscure2 ? Icons.visibility : Icons.visibility_off),
+                    icon: Icon(
+                        _obscure2 ? Icons.visibility : Icons.visibility_off),
                   ),
                 ),
                 obscureText: _obscure2,
-                validator: (v) => v != _password.text ? 'Passwords do not match' : null,
+                validator: (v) =>
+                    v != _password.text ? 'Passwords do not match' : null,
               ),
               const SizedBox(height: 8),
               if (_error != null)
@@ -138,7 +174,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
               ),
               const SizedBox(height: 10),
               TextButton(
-                onPressed: _busy ? null : () => Navigator.of(context).pushNamed('/login'),
+                onPressed: _busy
+                    ? null
+                    : () => Navigator.of(context).pushNamed('/login'),
                 child: const Text('Already have an account? Sign in'),
               ),
             ],

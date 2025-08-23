@@ -9,6 +9,7 @@ class UserSignUp(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=256)
     full_name: Optional[str] = None
+    phone: str = Field(..., regex=r'^\+961\d{7,8}$') 
 
 class UserSignIn(BaseModel):
     # what the frontend sends on login
@@ -23,9 +24,10 @@ class UserToken(BaseModel):
     expires_in: int
 
 class UserProfile(BaseModel):
-    user_sub: str              # Cognito user UUID
+    user_sub: str
     email: EmailStr
     full_name: Optional[str] = None
+    phone: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
