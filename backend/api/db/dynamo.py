@@ -1,11 +1,13 @@
 import os
 import boto3
 from boto3.dynamodb.conditions import Key, Attr
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import List
 import uuid 
 from typing import Optional, Dict, Any
+import sys, os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))) #I used absolute paths cuz nothign else works
 from services.severity import find_nearest_safe_hex
 import json 
 
@@ -18,22 +20,6 @@ ZONES_CITY_INDEX = os.getenv("ZONES_CITY_INDEX", "city-index")
 dynamodb = boto3.resource("dynamodb", region_name=REGION)
 zones_table = dynamodb.Table(ZONES_TABLE)
 incidents_table = dynamodb.Table(INCIDENTS_TABLE)
-from services.h3_utils import point_to_hex
-
-def find_city(lat: float, lng: float, resolution: int = 9) -> Optional[str]:
-    """
-    Given a point (lat,lng), return the city name for its containing H3 hex if known.
-    Falls back to None if not found in the Zones table.
-    """
-    try:
-        hex_id = point_to_hex(lat, lng, resolution=resolution)
-        item = get_zone_by_id(hex_id)
-        if item and "city" in item:
-            return item["city"]
-    except Exception as e:
-        print(f"find_city failed for ({lat},{lng}): {e}")
-    return None
-
 def get_city_items_all(city: str, page_limit: int = 1000) -> List[Dict[str, Any]]:
     """
     FAST PATH: Query the city GSI and return all items with
@@ -121,7 +107,7 @@ def get_incidents_by_hex(zone_id: str) -> list[dict]:
     return resp.get("Items", [])
 
 def put_zones(zone_ids: List[str], city: str) -> int:
-    now_iso = datetime.utcnow().isoformat()
+    now_iso = datetime.now(timezone.utc).isoformat()
     with zones_table.batch_writer(overwrite_by_pkeys=["zone_id"]) as batch:
         for zone_id in zone_ids:
             batch.put_item(
@@ -222,7 +208,7 @@ def update_zone_boundary(zone_id: str, boundary_coords: list[list[float]]) -> No
     Cache boundary on the Zone item so we don't recompute H3 boundary next time.
     We store it as a JSON string to avoid float/Decimal headaches.
     """
-    now_iso = datetime.utcnow().isoformat()
+    now_iso = datetime.now(timezone.utc).isoformat()
     zones_table.update_item(
         Key={"zone_id": zone_id},
         UpdateExpression="SET boundary = :b, boundary_updated_at = :u",
