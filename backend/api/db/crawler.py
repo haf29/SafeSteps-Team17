@@ -45,6 +45,7 @@ async def analyze_article(article: dict) -> dict:
     Content: {" ".join(article['content']) if isinstance(article['content'], list) else article['content']}
     Task: 1. Determine if this article reports a **real-world public safety hazard or incident in Lebanon**. 
        - Ignore incidents in Gaza, Palestine, West Bank, or any region outside Lebanon. 
+       - DO PUT IS_CRIME AS FALSE IN CASE LOCATION IS NOT LEBANON
        - Crimes: murder, assault, robbery, theft, harassment, vandalism 
        - Security/military threats: drone activity, airstrikes, shootings, explosions, kidnappings 
        - Any event that poses a danger to people or public order
@@ -52,7 +53,7 @@ async def analyze_article(article: dict) -> dict:
        - Extract the most specific location in Lebanon. Make sure the translation of Arabic names to English ones is correct (حربتا becomes Hrabta, etc.)
        - If multiple locations exist, put a list of the most relevant locations(use cities if you feel it reflects the region of threat most)
        - Identify the primary incident type from: ["murder", "assault", "robbery", "theft", "harassment", "vandalism", "drone_activity", "airstrike", "explosion", "shooting", "kidnapping", "other"] 
-    3. If not relevant, set: is_crime=false, crime_type="other", severity_score=0, location=[""]. 
+    3. If not relevant, or location is not Lebanon, set: is_crime=false, crime_type="other", severity_score=0, location=[""]. 
     Return ONLY JSON: 
     {{ 
     "is_crime": true/false, 
