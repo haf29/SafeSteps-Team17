@@ -1,3 +1,4 @@
+# backend/api/models/user.py
 from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, EmailStr, Field
@@ -9,7 +10,10 @@ class UserSignUp(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=256)
     full_name: Optional[str] = None
-    phone: str = Field(..., regex=r'^\+961\d{7,8}$') 
+    # Pydantic v2: use `pattern`, not `regex`
+    # Lebanon format (+961 and 7–8 digits). If you want global E.164 later,
+    # switch to pattern=r'^\+\d{7,15}$'
+    phone: str = Field(..., pattern=r'^\+961\d{7,8}$')
 
 class UserSignIn(BaseModel):
     # what the frontend sends on login
