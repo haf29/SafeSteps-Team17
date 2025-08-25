@@ -6,7 +6,6 @@ import 'package:latlong2/latlong.dart';
 
 import '../models/hex_zone_model.dart';
 import '../services/hive_service.dart';
-import 'report_screen.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -326,26 +325,6 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                     _moveMap(me, _mapController.camera.zoom);
                   },
                   child: const Icon(Icons.my_location),
-                ),
-              ),
-
-              // 👇 NEW Report button
-              Positioned(
-                left: 12,
-                bottom: 24,
-                child: FloatingActionButton.extended(
-                  heroTag: 'report_page',
-                  backgroundColor: Colors.redAccent,
-                  icon: const Icon(Icons.report),
-                  label: const Text('Report'),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const ReportScreen(),
-                      ),
-                    );
-                  },
                 ),
               ),
             ],

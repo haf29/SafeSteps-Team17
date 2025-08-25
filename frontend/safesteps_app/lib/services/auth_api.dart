@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthApi {
   static const String _apiBase =
-      String.fromEnvironment('API_BASE', defaultValue: 'http://localhost:8000');
+      String.fromEnvironment('API_BASE', defaultValue: 'http://51.20.9.164:8000');
 
   static const _kAccess = 'access_token';
   static const _kRefresh = 'refresh_token';

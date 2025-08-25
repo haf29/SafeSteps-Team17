@@ -23,7 +23,7 @@ class _ReportScreenState extends State<ReportScreen> {
   double? _lng;
 
   // TODO: configure for your deployment
-  static const String _baseUrl = "http://localhost:8000";
+  static const String _baseUrl = "http://51.20.9.164:8000";
 
   Future<void> _pickDateTime() async {
     final date = await showDatePicker(
