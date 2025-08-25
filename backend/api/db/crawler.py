@@ -180,7 +180,7 @@ def save_to_zone(article: dict):
                 incident_type=incident_type,
                 timestamp=ts,
                 city=city,
-                reported_by="crawler",
+                reported_by="Lebanon Debate",
             )
 
             if success:
@@ -208,7 +208,7 @@ async def get_feed(src: dict, article_count: int):
 
 async def main():
     source = {"url": "https://www.lebanondebate.com/api/latest_news", "name": "Lebanon Debate"}
-    await get_feed(source, 8)
+    await get_feed(source, 15)
 
 
 if __name__ == "__main__":
