@@ -6,6 +6,7 @@ import json
 from typing import List, Dict, Any 
 from pathlib import Path
 from shapely.geometry import Point, shape
+from shapely.geometry import Polygon
 
 from db.dynamo import (
     get_zones_by_city,
@@ -150,3 +151,33 @@ def get_all_lebanon_zones(*, page_limit: int = 1000, include_city: bool = True) 
             out.append(zone_payload)
 
     return {"cities": cities, "zones": out} 
+
+
+def get_zones_in_bbox(min_lat: float, max_lat: float, min_lng: float, max_lng: float, page_limit: int = 1000):
+    bbox = Polygon([
+        (min_lng, min_lat),
+        (min_lng, max_lat),
+        (max_lng, max_lat),
+        (max_lng, min_lat),
+        (min_lng, min_lat),
+    ])
+
+    cities = get_cities()
+    out: List[Dict[str, Any]] = []
+
+    for city in cities:
+        rows = get_city_items_all(city, page_limit=page_limit)
+        for it in rows:
+            boundary = _parse_boundary(it.get("boundary"))
+            if not boundary:
+                continue
+            try:
+                poly = Polygon(boundary[0])  # assumes GeoJSON-like [[(lng,lat),...]]
+                if poly.intersects(bbox):
+                    zone_payload = _make_zone_payload(it)
+                    zone_payload["city"] = city
+                    out.append(zone_payload)
+            except Exception:
+                continue  # skip invalid geometries
+
+    return {"zones": out}

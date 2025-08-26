@@ -34,3 +34,21 @@ def hex_zones(
 @router.get("/cities")
 def list_cities():
     return {"cities": get_cities()} 
+
+@router.get("/hex_zones_bbox")
+def hex_zones_bbox(
+    min_lat: float = Query(..., description="Minimum latitude"),
+    max_lat: float = Query(..., description="Maximum latitude"),
+    min_lng: float = Query(..., description="Minimum longitude"),
+    max_lng: float = Query(..., description="Maximum longitude"),
+    page_limit: int = Query(1000, ge=100, le=2000, description="Page size per city GSI query"),
+):
+    """
+    Return only zones whose boundary intersects the given bounding box.
+    Use this instead of dumping all Lebanon zones.
+    """
+    try:
+        from services.zone_service import get_zones_in_bbox
+        return get_zones_in_bbox(min_lat, max_lat, min_lng, max_lng, page_limit=page_limit)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

@@ -160,13 +160,6 @@ class _AuthedHomeState extends State<_AuthedHome> {
               label: "Report"),
         ],
       ),
-      floatingActionButton: _tab == 0
-          ? FloatingActionButton.extended(
-              icon: const Icon(Icons.report),
-              label: const Text("Report"),
-              onPressed: () => Navigator.of(context).pushNamed("/report"),
-            )
-          : null,
     );
   }
 }
