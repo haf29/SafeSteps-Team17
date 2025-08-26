@@ -27,6 +27,10 @@ class HexZone extends HiveObject {
   @HiveField(5)
   DateTime updatedAt;
 
+  /// Tile index for lazy loading (e.g. "33.8_35.5")
+  @HiveField(6)
+  String tileId;
+
   HexZone({
     required this.zoneId,
     required this.boundary,
@@ -34,5 +38,6 @@ class HexZone extends HiveObject {
     this.score = 0.0,
     this.city = "",
     DateTime? updatedAt,
+    this.tileId = "",
   }) : updatedAt = updatedAt ?? DateTime.now();
 }

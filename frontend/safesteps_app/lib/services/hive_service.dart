@@ -1,201 +1,159 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:hive/hive.dart';
-
 import '../models/hex_zone_model.dart';
+import 'package:flutter/material.dart';
 
 class HiveService {
   static const String hexBoxName = "hex_zones";
-
-  // ===== API base for dev =====
+  static const String metaBoxName = "meta";
   static const String apiBase = String.fromEnvironment(
     'API_BASE',
     defaultValue: 'http://51.20.9.164:8000',
   );
-  // static const String apiBase = 'http://10.0.2.2:8000'; // Android emulator
 
-  // Keys for 'meta' box
-  static const String _kWarmupDone = 'warmup_done';
-  static const String _kLastCityRefreshPrefix = 'last_city_refresh_';
+  // TTL per tile
+  static const Duration tileTTL = Duration(minutes: 20);
 
-  // ---------- Init ----------
   static Future<void> initHive() async {
-    if (!Hive.isAdapterRegistered(0)) {
-      Hive.registerAdapter(HexZoneAdapter());
+    if (!Hive.isAdapterRegistered(0)) Hive.registerAdapter(HexZoneAdapter());
+    await Future.wait([Hive.openBox<HexZone>(hexBoxName), Hive.openBox(metaBoxName)]);
+  }
+
+  // ---------- Tiles ----------
+
+  static String tileIdFor(double lat, double lng, {double size = 0.1}) {
+    final latKey = (lat / size).floorToDouble() * size;
+    final lngKey = (lng / size).floorToDouble() * size;
+    return "${latKey.toStringAsFixed(1)}_${lngKey.toStringAsFixed(1)}";
+  }
+
+  static List<String> tileIdsForRect(double south, double west, double north, double east,
+      {double size = 0.1}) {
+    final ids = <String>{};
+    if (north < south) {
+      final t = south;
+      south = north;
+      north = t;
     }
-    await Future.wait([
-      Hive.openBox<HexZone>(hexBoxName),
-      Hive.openBox('meta'),
-    ]);
-  }
-
-  static bool get isWarmupDone =>
-      Hive.box('meta').get(_kWarmupDone, defaultValue: false) == true;
-
-  // ---------- Load / Save ----------
-  static List<HexZone> loadZones() =>
-      Hive.box<HexZone>(hexBoxName).values.toList();
-
-  /// Upsert a batch efficiently (no clear, no many small writes)
-  static Future<void> saveZonesBatch(List<HexZone> zones) async {
-    final box = Hive.box<HexZone>(hexBoxName);
-    final map = <String, HexZone>{
-      for (final z in zones) z.zoneId: z,
-    };
-    await box.putAll(map);
-  }
-  // Heuristic: are points probably swapped (lng,lat) instead of (lat,lng)?
-static bool _looksSwappedForLebanon(List<List<double>> pts) {
-  if (pts.isEmpty) return false;
-
-  // Lebanon rough bounding box:
-  // lat: 33.0–34.9, lng: 35.0–36.9
-  int swappedVotes = 0;
-  for (final p in pts) {
-    if (p.length < 2) continue;
-    final a = p[0], b = p[1]; // a=lat?, b=lng?
-    final aLatOk = a >= 33.0 && a <= 34.9;
-    final bLngOk = b >= 35.0 && b <= 36.9;
-    final swappedCandidate = (b >= 33.0 && b <= 34.9) && (a >= 35.0 && a <= 36.9);
-    if (!aLatOk && swappedCandidate && !bLngOk) swappedVotes++;
-  }
-  return swappedVotes > (pts.length / 2);
-}
-
-static List<List<double>> _normalizeLebanonLatLng(List<List<double>> pts) {
-  if (_looksSwappedForLebanon(pts)) {
-    // swap each [x,y] -> [y,x]
-    return pts.map((p) => p.length >= 2 ? <double>[p[1], p[0]] : p).toList();
-  }
-  return pts;
-}
-  // ---------- Blocking warmup (first run ONLY) ----------
-  /// Downloads ALL Lebanon hexes once, saves to Hive, sets warmup flag,
-  /// and returns the number of zones saved. Subsequent runs should **not**
-  /// call this (guard in the caller).
-  static Future<int> warmupAllLebanon() async {
-    final meta = Hive.box('meta');
-    if (meta.get(_kWarmupDone, defaultValue: false) == true) {
-      return loadZones().length;
+    if (east < west) {
+      final t = west;
+      west = east;
+      east = t;
     }
 
-    final res = await http.get(Uri.parse('$apiBase/hex_zones_lebanon'));
-    if (res.statusCode != 200) {
-      throw Exception('warmupAllLebanon failed: ${res.statusCode}');
-    }
-
-    final data = jsonDecode(res.body) as Map<String, dynamic>;
-    final raw = (data['zones'] as List).cast<Map<String, dynamic>>();
-
-    final upserts = <HexZone>[];
-    for (final z in raw) {
-      final id = z['zone_id'] as String;
-      final colorHex = (z['color'] as String?) ?? '#00FF00';
-      final colorValue = int.parse('0xFF${colorHex.replaceAll("#", "")}');
-      final score = (z['score'] as num?)?.toDouble() ?? 0.0;
-      final city = (z['city'] as String?) ?? '';
-      final boundary = _parseBoundary(z['boundary']);
-
-      upserts.add(HexZone(
-        zoneId: id,
-        boundary: boundary,
-        colorValue: colorValue,
-        score: score,
-        city: city,
-        updatedAt: DateTime.now(),
-      ));
-    }
-
-    await saveZonesBatch(upserts);
-    await meta.put(_kWarmupDone, true);
-    return upserts.length;
-  }
-
-  // ---------- Targeted refresh: /hex_zones?lat=..&lng=.. ----------
-  static Future<void> refreshCityByLatLng(
-    double lat,
-    double lng, {
-    Duration ttl = const Duration(minutes: 20),
-  }) async {
-    final meta = Hive.box('meta');
-    final box = Hive.box<HexZone>(hexBoxName);
-
-    final res = await http.get(Uri.parse('$apiBase/hex_zones?lat=$lat&lng=$lng'));
-    if (res.statusCode != 200) return;
-
-    final data = jsonDecode(res.body) as Map<String, dynamic>;
-    final city = (data['city'] as String?) ?? '';
-    if (city.isEmpty) return;
-
-    final key = '$_kLastCityRefreshPrefix$city';
-    final lastIso = meta.get(key) as String?;
-    if (lastIso != null) {
-      final last = DateTime.tryParse(lastIso);
-      if (last != null && DateTime.now().difference(last) < ttl) {
-        return;
+    double lat = (south / size).floorToDouble() * size;
+    for (; lat <= north + 1e-9; lat += size) {
+      double lng = (west / size).floorToDouble() * size;
+      for (; lng <= east + 1e-9; lng += size) {
+        ids.add(tileIdFor(lat, lng, size: size));
       }
     }
+    return ids.toList();
+  }
 
-    final zones = (data['zones'] as List).cast<Map<String, dynamic>>();
-    final map = <String, HexZone>{};
+  static List<HexZone> loadZonesForTiles(List<String> tileIds) {
+    final box = Hive.box<HexZone>(hexBoxName);
+    if (tileIds.isEmpty) return const [];
+    final set = tileIds.toSet();
+    return box.values.where((z) => set.contains(z.tileId)).toList();
+  }
+
+  static Future<void> saveZonesBatch(List<HexZone> zones) async {
+    final box = Hive.box<HexZone>(hexBoxName);
+    final meta = Hive.box(metaBoxName);
 
     for (final z in zones) {
-      final id = z['zone_id'] as String;
-      final colorHex = (z['color'] as String?) ?? '#00FF00';
-      final colorValue = int.parse('0xFF${colorHex.replaceAll("#", "")}');
-      final score = (z['score'] as num?)?.toDouble() ?? 0.0;
-      final boundary = _parseBoundary(z['boundary']);
+      if ((z.tileId).isEmpty && z.boundary.isNotEmpty) {
+        final c = _centroid(z.boundary);
+        z.tileId = tileIdFor(c[0], c[1]);
+      }
+    }
+    final map = {for (var z in zones) z.zoneId: z};
+    await box.putAll(map);
 
-      final existing = box.get(id);
-      if (existing == null) {
-        map[id] = HexZone(
+    // Update tile last fetch
+    final nowIso = DateTime.now().toIso8601String();
+    for (var z in zones) {
+      meta.put('tile_last_update_${z.tileId}', nowIso);
+    }
+  }
+
+  static bool tileExpired(String tileId) {
+    final meta = Hive.box(metaBoxName);
+    final lastIso = meta.get('tile_last_update_$tileId') as String?;
+    if (lastIso == null) return true;
+    final last = DateTime.tryParse(lastIso);
+    if (last == null) return true;
+    return DateTime.now().difference(last) > tileTTL;
+  }
+
+  // ---------- Fetch from backend ----------
+
+  static Future<void> fetchZonesByBBox(
+      double minLat, double minLng, double maxLat, double maxLng) async {
+    try {
+      final url =
+          Uri.parse('$apiBase/hex_zones_bbox?min_lat=$minLat&min_lng=$minLng&max_lat=$maxLat&max_lng=$maxLng&page_limit=1000');
+      final res = await http.get(url);
+      if (res.statusCode != 200) return;
+
+      final data = jsonDecode(res.body) as Map<String, dynamic>;
+      final zonesRaw = (data['zones'] as List).cast<Map<String, dynamic>>();
+      final zones = <HexZone>[];
+
+      for (var z in zonesRaw) {
+        final id = z['zone_id'] as String;
+        final colorHex = (z['color'] as String?) ?? '#00FF00';
+        final colorValue = int.parse('0xFF${colorHex.replaceAll("#", "")}');
+        final score = (z['score'] as num?)?.toDouble() ?? 0.0;
+        final boundary = _parseBoundary(z['boundary']);
+        final tileId = boundary.isNotEmpty ? tileIdFor(_centroid(boundary)[0], _centroid(boundary)[1]) : '';
+
+        zones.add(HexZone(
           zoneId: id,
           boundary: boundary,
           colorValue: colorValue,
           score: score,
-          city: city,
+          city: z['city'] ?? '',
+          tileId: tileId,
           updatedAt: DateTime.now(),
-        );
-      } else {
-        if (boundary.isNotEmpty) existing.boundary = boundary;
-        existing.colorValue = colorValue;
-        existing.score = score;
-        if (city.isNotEmpty) existing.city = city;
-        existing.updatedAt = DateTime.now();
-        map[id] = existing;
+        ));
       }
-    }
 
-    if (map.isNotEmpty) {
-      await box.putAll(map);
+      if (zones.isNotEmpty) await saveZonesBatch(zones);
+    } catch (e) {
+      debugPrint('fetchZonesByBBox error: $e');
     }
-    await meta.put(key, DateTime.now().toIso8601String());
   }
 
-  // ---------- boundary parser (string or list) ----------
+  // ---------- Utils ----------
+
+  static List<double> _centroid(List<List<double>> pts) {
+    double lat = 0, lng = 0;
+    for (var p in pts) {
+      lat += p[0];
+      lng += p[1];
+    }
+    final n = pts.length.toDouble();
+    return [lat / n, lng / n];
+  }
+
   static List<List<double>> _parseBoundary(dynamic raw) {
-  try {
-    List<List<double>> pts;
-    if (raw is String && raw.isNotEmpty) {
-      final parsed = jsonDecode(raw) as List;
-      pts = parsed
-          .map<List<double>>(
-              (p) => (p as List).map((x) => (x as num).toDouble()).toList())
-          .toList();
-    } else if (raw is List) {
-      pts = raw
-          .map<List<double>>(
-              (p) => (p as List).map((x) => (x as num).toDouble()).toList())
-          .toList();
-    } else {
-      return const <List<double>>[];
+    if (raw == null) return const [];
+    try {
+      List<List<double>> pts;
+      if (raw is String && raw.isNotEmpty) {
+        final parsed = jsonDecode(raw) as List;
+        pts = parsed.map<List<double>>((p) => (p as List).map((x) => (x as num).toDouble()).toList()).toList();
+      } else if (raw is List) {
+        pts = raw.map<List<double>>((p) => (p as List).map((x) => (x as num).toDouble()).toList()).toList();
+      } else {
+        return const [];
+      }
+      return pts;
+    } catch (_) {
+      return const [];
     }
-
-    // ✅ fix potential (lng,lat) → (lat,lng)
-    return _normalizeLebanonLatLng(pts);
-  } catch (_) {
-    return const <List<double>>[];
   }
-}
-
 }
