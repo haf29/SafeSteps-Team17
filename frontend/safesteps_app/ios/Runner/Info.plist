@@ -24,10 +24,14 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+
+	<!-- Launch screens / storyboard -->
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
+
+	<!-- Supported orientations -->
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
@@ -41,9 +45,30 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+
+	<!-- Flutter perf keys -->
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+
+	<!-- ✅ Location permission (needed for “Use my location”) -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>This app needs your location to plan safe routes and show your position on the map.</string>
+
+	<!-- ✅ Allow HTTP calls in development so you can call http://localhost:8000 or 10.0.2.2:8000 -->
+	<!-- IMPORTANT: tighten this before shipping to App Store. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
+
+	<!-- OPTIONAL: If you prefer to supply the Google Maps iOS key here instead of AppDelegate.swift
+	     then uncomment the next two lines and set your key. Otherwise keep using GMSServices.provideAPIKey(...) -->
+	<!--
+	<key>GMSApiKey</key>
+	<string>YOUR_IOS_MAPS_API_KEY</string>
+	-->
 </dict>
 </plist>

@@ -1,24 +1,48 @@
+// lib/services/auth_api.dart
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthApi {
-  static const String _apiBase =
-      String.fromEnvironment('API_BASE', defaultValue: 'http://51.20.9.164:8000');
+  /// Base like: http://127.0.0.1:8000  (no trailing slash needed)
+  /// You can override from the CLI:
+  ///   flutter run -d chrome --dart-define API_BASE_URL=http://127.0.0.1:8000
+  static const String _apiBase = String.fromEnvironment(
+    'API_BASE_URL',
+    // keep your current default remote host; override via --dart-define for local
+    defaultValue: 'http://51.20.9.164:8000',
+  );
+
+  /// Optional global prefix like "/api"
+  /// Override from CLI:
+  ///   --dart-define API_PREFIX=/api
+  static const String _apiPrefix = String.fromEnvironment('API_PREFIX', defaultValue: '');
 
   static const _kAccess = 'access_token';
   static const _kRefresh = 'refresh_token';
   static const _kId = 'id_token';
   static const _kExp = 'expires_in';
 
-  static Uri _url(String path) {
+  // ---------------- URL builder ----------------
+  static Uri _uri(String path) {
+    // Normalize base
     final base = Uri.parse(_apiBase);
-    final p = (base.path.endsWith('/')
-            ? base.path.substring(0, base.path.length - 1)
-            : base.path) +
-        path;
-    return base.replace(path: p);
+    final basePath = base.path.endsWith('/')
+        ? base.path.substring(0, base.path.length - 1)
+        : base.path;
+
+    // Normalize prefix
+    String pfx = _apiPrefix.trim();
+    if (pfx.isNotEmpty && !pfx.startsWith('/')) pfx = '/$pfx';
+    if (pfx.endsWith('/')) pfx = pfx.substring(0, pfx.length - 1);
+
+    // Normalize leaf path
+    final leaf = path.startsWith('/') ? path : '/$path';
+
+    final fullPath = '$basePath$pfx$leaf';
+    return base.replace(path: fullPath);
   }
 
   static void _log(String msg) {
@@ -50,18 +74,25 @@ class AuthApi {
   }
 
   // --------------- HTTP helpers ---------------
-  static Future<http.Response> _post(String path, Map<String, dynamic> body,
-      {bool auth = false}) async {
+  static Future<http.Response> _post(
+    String path,
+    Map<String, dynamic> body, {
+    bool auth = false,
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
+    final url = _uri(path);
     try {
-      final headers =
-          auth ? await authHeaders() : {'Content-Type': 'application/json'};
-      final res =
-          await http.post(_url(path), headers: headers, body: jsonEncode(body));
+      final headers = auth ? await authHeaders() : {'Content-Type': 'application/json'};
+      final res = await http.post(url, headers: headers, body: jsonEncode(body)).timeout(timeout);
       return res;
-    } catch (_) {
+    } on TimeoutException {
       throw Exception(
-        "Can't reach the server at $_apiBase. "
-        "Check that FastAPI is running and CORS allows your Flutter web origin.",
+        "Request to $url timed out. Ensure the backend is running and reachable.",
+      );
+    } catch (e) {
+      throw Exception(
+        "Can't reach the server at $_apiBase (resolved URL: $url). "
+        "Check that FastAPI is running and CORS allows your Flutter web origin.\n$e",
       );
     }
   }
@@ -71,13 +102,13 @@ class AuthApi {
     required String email,
     required String password,
     String? fullName,
-    required String phone, // ✅ new param
+    required String phone, // kept
   }) async {
     final res = await _post('/user/signup', {
       'email': email,
       'password': password,
       'full_name': fullName,
-      'phone': phone, // ✅ added to request
+      'phone': phone,
     });
     _log('signup → ${res.statusCode}: ${res.body}');
     if (res.statusCode < 200 || res.statusCode >= 300) {
@@ -91,8 +122,7 @@ class AuthApi {
     );
   }
 
-  static Future<void> confirm(
-      {required String email, required String code}) async {
+  static Future<void> confirm({required String email, required String code}) async {
     final res = await _post('/user/confirm', {'email': email, 'code': code});
     _log('confirm → ${res.statusCode}: ${res.body}');
     if (res.statusCode != 204) throw _extractError('Confirmation failed', res);
@@ -104,10 +134,8 @@ class AuthApi {
     if (res.statusCode != 204) throw _extractError('Resend code failed', res);
   }
 
-  static Future<void> login(
-      {required String email, required String password}) async {
-    final res =
-        await _post('/user/login', {'email': email, 'password': password});
+  static Future<void> login({required String email, required String password}) async {
+    final res = await _post('/user/login', {'email': email, 'password': password});
     _log('login → ${res.statusCode}: ${res.body}');
     if (res.statusCode < 200 || res.statusCode >= 300) {
       throw _extractError('Login failed', res);

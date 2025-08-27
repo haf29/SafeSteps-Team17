@@ -162,7 +162,6 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
     final here = LatLng(_currentPosition!.latitude, _currentPosition!.longitude);
 
-    // No overflow: use FittedBox and a slightly larger marker box
     _markers.add(
       Marker(
         key: const ValueKey('me'),
@@ -226,7 +225,16 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
         : const LatLng(33.8886, 35.4955); // Beirut fallback
 
     return Scaffold(
-      // 🔇 No AppBar here — main.dart provides the global nav
+      appBar: AppBar(
+        title: const Text('Map'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.safety_check),
+            tooltip: 'Open Safety',
+            onPressed: () => Navigator.of(context).pushNamed('/safety'),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: AnimatedBuilder(
           animation: _glowAnim,
@@ -256,7 +264,6 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                   ],
                 ),
 
-                // First-time loader overlay
                 if (!_firstViewportLoaded)
                   Positioned.fill(
                     child: Container(
@@ -308,6 +315,13 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
             );
           },
         ),
+      ),
+
+      // Quick access to Safety from the map
+      floatingActionButton: FloatingActionButton.extended(
+        icon: const Icon(Icons.safety_check),
+        label: const Text('Safety'),
+        onPressed: () => Navigator.of(context).pushNamed('/safety'),
       ),
     );
   }
