@@ -10,53 +10,23 @@ import 'screens/signup_screen.dart';
 import 'screens/confirm_screen.dart';
 import 'screens/map_screen.dart';
 import 'screens/report_screen.dart';
+import 'screens/safety_navigator_page.dart';
 
-// Auth API you already use
 import 'services/auth_api.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Local storage init
   await Hive.initFlutter();
   if (!Hive.isAdapterRegistered(0)) {
     Hive.registerAdapter(HexZoneAdapter()); // from hex_zone_model.g.dart
   }
-  // Open boxes (no network, very fast)
   await HiveService.initHive();
 
-  // IMPORTANT: Do NOT warmup here. We want login to appear immediately.
-  // MapScreen will trigger warmupAllLebanonIfNeeded() in the background later.
-
-  // ✅ start the auth-aware app so existing sessions skip /login
   runApp(const SafeStepsApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'SafeSteps',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
-        useMaterial3: true,
-      ),
-      initialRoute: '/login',
-      routes: {
-        '/login': (_) => const LoginScreen(),
-        '/signup': (_) => const SignUpScreen(),
-        '/confirm': (_) => const ConfirmScreen(),
-        '/map': (_) => const MapScreen(),
-        '/report': (_) => const ReportScreen(),
-      },
-    );
-  }
-}
-
-// ===== your auth-aware app remains unchanged below =====
-
+// ========= auth-aware app =========
 class SafeStepsApp extends StatefulWidget {
   const SafeStepsApp({super.key});
   @override
@@ -81,18 +51,19 @@ class _SafeStepsAppState extends State<SafeStepsApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: "SafeSteps",
+      title: 'SafeSteps',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
         useMaterial3: true,
       ),
-      routes: {
-        "/login": (ctx) => LoginScreen(onAuthenticated: _refreshAuth),
-        "/signup": (ctx) => const SignUpScreen(),
-        "/confirm": (ctx) => const ConfirmScreen(),
-        "/map": (ctx) => const MapScreen(),
-        "/report": (ctx) => const ReportScreen(),
+      routes: <String, WidgetBuilder>{
+        '/login': (ctx) => LoginScreen(onAuthenticated: _refreshAuth),
+        '/signup': (ctx) => const SignUpScreen(),
+        '/confirm': (ctx) => const ConfirmScreen(),
+        '/map': (ctx) => const MapScreen(),
+        '/report': (ctx) => const ReportScreen(),
+        '/safety': (ctx) => const SafetyNavigatorPage(),
       },
       home: FutureBuilder<bool>(
         future: _isLoggedIn,
@@ -103,9 +74,7 @@ class _SafeStepsAppState extends State<SafeStepsApp> {
             );
           }
           final isIn = snap.data == true;
-          return isIn
-              ? const _AuthedHome()
-              : LoginScreen(onAuthenticated: _refreshAuth);
+          return isIn ? const _AuthedHome() : LoginScreen(onAuthenticated: _refreshAuth);
         },
       ),
     );
@@ -113,7 +82,7 @@ class _SafeStepsAppState extends State<SafeStepsApp> {
 }
 
 class _AuthedHome extends StatefulWidget {
-  const _AuthedHome();
+  const _AuthedHome({super.key});
 
   @override
   State<_AuthedHome> createState() => _AuthedHomeState();
@@ -125,21 +94,23 @@ class _AuthedHomeState extends State<_AuthedHome> {
   Future<void> _logout() async {
     await AuthApi.logout();
     if (!mounted) return;
-    Navigator.of(context).pushNamedAndRemoveUntil("/login", (r) => false);
+    Navigator.of(context).pushNamedAndRemoveUntil('/login', (r) => false);
   }
 
   @override
   Widget build(BuildContext context) {
-    final pages = [
+    final pages = <Widget>[
       const MapScreen(),
+      const SafetyNavigatorPage(), // only visible after login
       const ReportScreen(),
     ];
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text("SafeSteps"),
+        title: const Text('SafeSteps'),
         actions: [
           IconButton(
-            tooltip: "Log out",
+            tooltip: 'Log out',
             onPressed: _logout,
             icon: const Icon(Icons.logout),
           ),
@@ -151,13 +122,20 @@ class _AuthedHomeState extends State<_AuthedHome> {
         onDestinationSelected: (i) => setState(() => _tab = i),
         destinations: const [
           NavigationDestination(
-              icon: Icon(Icons.map_outlined),
-              selectedIcon: Icon(Icons.map),
-              label: "Map"),
+            icon: Icon(Icons.map_outlined),
+            selectedIcon: Icon(Icons.map),
+            label: 'Map',
+          ),
           NavigationDestination(
-              icon: Icon(Icons.report_outlined),
-              selectedIcon: Icon(Icons.report),
-              label: "Report"),
+            icon: Icon(Icons.safety_check_outlined),
+            selectedIcon: Icon(Icons.safety_check),
+            label: 'Safety',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.report_outlined),
+            selectedIcon: Icon(Icons.report),
+            label: 'Report',
+          ),
         ],
       ),
     );
