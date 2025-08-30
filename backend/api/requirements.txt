@@ -7,3 +7,4 @@ boto3>=1.28
 h3>=3.7
 shapely>=2.0
 python-dotenv>=1.0
+email-validator

@@ -1,183 +1,185 @@
-from functools import lru_cache
-import json
-from shapely.geometry import shape
-import os
-import json
-from typing import List, Dict, Any 
+# services/zone_service.py
+from __future__ import annotations
+
+import os, json
 from pathlib import Path
-from shapely.geometry import Point, shape
-from shapely.geometry import Polygon
+from functools import lru_cache
+from typing import Any, Dict, List, Tuple
 
-from db.dynamo import (
-    get_zones_by_city,
-    get_incidents_by_hex,
-    get_boundary_for_hex,
-    put_boundary_for_hex,
-    get_city_items_all
-)
-from services.h3_utils import get_hex_boundary
-from services.severity import calculate_score, categorize_score
+from shapely.geometry import Point, Polygon, shape, box as make_bbox
 
-# Use env override if provided; fall back to repo's data/cities.json
+from db.dynamo import get_city_items_all
+from services.severity import categorize_score
+
+# ---- cities.json path (env override allowed) ----
 CITY_FILE = os.getenv(
     "CITIES_FILE",
     str((Path(__file__).resolve().parents[3] / "data" / "cities.json"))
 )
 print("Resolved CITY_FILE path:", CITY_FILE)
-BOUNDARY_RES = int(os.getenv("BOUNDARY_RES", "9"))  # precomputed resolution you warmed
 
-def _load_city_features() -> List[Dict]:
+
+# ---------- City polygons (from cities.json) ----------
+def _load_city_features() -> List[Dict[str, Any]]:
     with open(CITY_FILE, "r", encoding="utf-8") as f:
         gj = json.load(f)
-    out = []
+
+    feats: List[Dict[str, Any]] = []
     for feat in gj.get("features", []):
         geom = feat.get("geometry")
         if not geom:
             continue
-        out.append({
+        feats.append({
             "name": feat.get("properties", {}).get("shapeName")
                     or feat.get("properties", {}).get("name"),
             "poly": shape(geom),
         })
-    return out
+    return feats
 
 _CITY_FEATS = _load_city_features()
 
-def find_city(lat: float, lng: float) -> str:
-    pt = Point(lng, lat)
-    for f in _CITY_FEATS:
-        if f["poly"].covers(pt):
-            return f["name"]
-    raise ValueError("Location not inside any supported city")
-def _parse_boundary(b):
-    """
-    Boundaries are stored as a JSON string in Dynamo to avoid float/Decimal issues.
-    Accept str (JSON) or already-parsed list.
-    """
-    if not b:
-        return None
-    if isinstance(b, str):
-        try:
-            return json.loads(b)
-        except Exception:
-            return None
-    if isinstance(b, list):
-        return b
-    return None
-    
-def get_city_zones(lat: float, lng: float, resolution: int = 9) -> Dict:
-    """
-    FAST READ:
-      1) detect city
-      2) single (paged) GSI query to get {zone_id, severity, boundary}
-      3) map severity -> color and return
-    Assumes severity & boundary were precomputed and stored on Zones items.
-    """
-    city = find_city(lat, lng)
-
-    rows = get_city_items_all(city, page_limit=1000)  # 3.5k rows = ~4 requests
-
-    zones: List[Dict] = []
-    for it in rows:
-        sev = float(it.get("severity", 0))
-        boundary = _parse_boundary(it.get("boundary"))
-        zones.append({
-            "zone_id": it["zone_id"],
-            "boundary": boundary or [],  # should be present if you pre-warmed
-            "score": sev,
-            "color": categorize_score(sev),
-        })
-
-    return {"city": city, "zones": zones}
-
-# Add this to backend/api/services/zone_service.py
-
-from functools import lru_cache
 
 @lru_cache(maxsize=1)
-def get_cities() -> list[str]:
-    """
-    Return a stable, sorted list of city/district names from cities.json.
-    Cached so it’s effectively free after first call.
-    """
+def get_cities() -> List[str]:
+    """Stable, sorted list of city names in cities.json."""
     return sorted({f["name"] for f in _CITY_FEATS})
-def _make_zone_payload(item: Dict[str, Any]) -> Dict[str, Any]:
-    """Uniform payload builder for a single Zone row."""
-    zid = item["zone_id"]
-    sev = float(item.get("severity", 0.0))
-    boundary = _parse_boundary(item.get("boundary"))
 
-    # Fallbacks if boundary wasn't pre-warmed
-    if not boundary:
-        cached = get_boundary_for_hex(zid)            # optional DB cache layer
-        boundary = cached or get_hex_boundary(zid)    # compute from H3 if needed
+
+def _find_city_by_point(lat: float, lng: float) -> str:
+    p = Point(lng, lat)  # shapely is (x=lng, y=lat)
+    for f in _CITY_FEATS:
+        if f["poly"].covers(p):
+            return f["name"]
+    raise ValueError("Location not inside any supported city")
+
+
+def _cities_intersecting_bbox(min_lat: float, max_lat: float, min_lng: float, max_lng: float) -> List[str]:
+    """Return city names whose polygon intersects the given bbox."""
+    bb = make_bbox(min_lng, min_lat, max_lng, max_lat)
+    names: List[str] = []
+    for f in _CITY_FEATS:
+        if f["poly"].intersects(bb):
+            names.append(f["name"])
+    return names
+
+
+# ---------- Boundary parsing / conversion ----------
+def _parse_boundary_value(raw: Any) -> List[List[float]]:
+    """
+    DB stores boundary as JSON string like [[lng,lat], ...].
+    Accepts str or already-parsed list. Returns list[[lng,lat],...].
+    """
+    if raw is None:
+        return []
+    if isinstance(raw, str):
         try:
-            # Persist for next time (avoid Decimal issues -> store JSON string)
-            put_boundary_for_hex(zid, boundary, item.get("boundary_res", 9))
+            arr = json.loads(raw)
         except Exception:
-            pass  # non-fatal
+            return []
+    else:
+        arr = raw
+    return arr if isinstance(arr, list) else []
 
-    from services.severity import categorize_score
-    return {
+
+def _lnglat_to_latlng_ring(lnglat: List[List[float]]) -> List[List[float]]:
+    """[[lng,lat], ...] -> [[lat,lng], ...]"""
+    out: List[List[float]] = []
+    for pt in lnglat:
+        if isinstance(pt, (list, tuple)) and len(pt) == 2:
+            out.append([float(pt[1]), float(pt[0])])
+    return out
+
+
+def _ring_to_polygon_lnglat(latlng_ring: List[List[float]]) -> Polygon | None:
+    """Take [[lat,lng],...] ring and build a shapely Polygon (expects (lng,lat))."""
+    if not latlng_ring:
+        return None
+    coords = [(lng, lat) for lat, lng in latlng_ring]
+    try:
+        return Polygon(coords)
+    except Exception:
+        return None
+
+
+def _item_to_zone_payload(it: Dict[str, Any], include_city: bool = True) -> Dict[str, Any]:
+    """
+    Dynamo item has:
+      - zone_id (string)
+      - boundary (JSON string of [[lng,lat],...])  <-- our assumption from your table
+      - severity (Number)                          <-- optional
+      - city (string)
+    Returns:
+      { zone_id, boundary=[[lat,lng],...], score, color, [city] }
+    """
+    zid = it.get("zone_id")
+    boundary_raw = it.get("boundary")  # JSON string or list
+    lnglat = _parse_boundary_value(boundary_raw)
+    latlng_ring = _lnglat_to_latlng_ring(lnglat)
+
+    sev = float(it.get("severity", 0) or 0)
+    payload = {
         "zone_id": zid,
-        "boundary": boundary or [],
+        "boundary": latlng_ring,
         "score": sev,
         "color": categorize_score(sev),
     }
+    if include_city and "city" in it:
+        payload["city"] = it["city"]
+    return payload
+
+
+# ---------- Public API used by routes ----------
+def get_city_zones(lat: float, lng: float, *, resolution: int = 9) -> Dict[str, Any]:
+    """
+    Find containing city for (lat,lng), pull all its zones (via GSI),
+    and return zones with boundary [[lat,lng],...] + color.
+    """
+    city = _find_city_by_point(lat, lng)
+
+    rows = get_city_items_all(city, page_limit=1000)  # returns dicts with zone_id, severity, boundary
+    zones: List[Dict[str, Any]] = []
+    for it in rows:
+        zones.append(_item_to_zone_payload(it, include_city=False))
+
+    return {"city": city, "zones": zones}
+
 
 def get_all_lebanon_zones(*, page_limit: int = 1000, include_city: bool = True) -> Dict[str, Any]:
     """
-    Return all zones for every city listed in cities.json.
-    Uses precomputed severity/boundary if available; otherwise computes boundary and stores it.
-
-    Response shape:
-    {
-      "cities": [...],
-      "zones": [
-        { "zone_id": "...", "boundary": [...], "score": 2.3, "color": "#A9D18E", "city": "Beirut" },
-        ...
-      ]
-    }
+    Heavy endpoint: return ALL zones for ALL cities in cities.json.
+    (Good for client-side warmup cache.)
     """
-    cities = get_cities()
-    out: List[Dict[str, Any]] = []
-
-    for city in cities:
-        rows = get_city_items_all(city, page_limit=page_limit)  # paged under the hood
-        for it in rows:
-            zone_payload = _make_zone_payload(it)
-            if include_city:
-                zone_payload["city"] = city
-            out.append(zone_payload)
-
-    return {"cities": cities, "zones": out} 
-
-
-def get_zones_in_bbox(min_lat: float, max_lat: float, min_lng: float, max_lng: float, page_limit: int = 1000):
-    bbox = Polygon([
-        (min_lng, min_lat),
-        (min_lng, max_lat),
-        (max_lng, max_lat),
-        (max_lng, min_lat),
-        (min_lng, min_lat),
-    ])
-
-    cities = get_cities()
-    out: List[Dict[str, Any]] = []
-
-    for city in cities:
+    all_zones: List[Dict[str, Any]] = []
+    for city in get_cities():
         rows = get_city_items_all(city, page_limit=page_limit)
         for it in rows:
-            boundary = _parse_boundary(it.get("boundary"))
-            if not boundary:
-                continue
-            try:
-                poly = Polygon(boundary[0])  # assumes GeoJSON-like [[(lng,lat),...]]
-                if poly.intersects(bbox):
-                    zone_payload = _make_zone_payload(it)
-                    zone_payload["city"] = city
-                    out.append(zone_payload)
-            except Exception:
-                continue  # skip invalid geometries
+            all_zones.append(_item_to_zone_payload(it, include_city=include_city))
+    return {"zones": all_zones}
 
-    return {"zones": out}
+
+def get_zones_in_bbox(
+    min_lat: float,
+    max_lat: float,
+    min_lng: float,
+    max_lng: float,
+    *,
+    page_limit: int = 1000
+) -> Dict[str, Any]:
+    """
+    Return only zones whose polygon intersects the viewport bbox.
+    """
+    bb = make_bbox(min_lng, min_lat, max_lng, max_lat)
+
+    zones_out: List[Dict[str, Any]] = []
+    # Only query cities that intersect the viewport
+    for city in _cities_intersecting_bbox(min_lat, max_lat, min_lng, max_lng):
+        rows = get_city_items_all(city, page_limit=page_limit)
+        for it in rows:
+            payload = _item_to_zone_payload(it, include_city=False)
+            poly = _ring_to_polygon_lnglat(payload["boundary"])
+            if poly is None:
+                continue
+            if poly.intersects(bb):
+                zones_out.append(payload)
+
+    return {"zones": zones_out}
