@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
-import '../models/hex_zone_model.dart';
 import '../services/hive_service.dart';
 
 class MapScreen extends StatefulWidget {
@@ -99,7 +98,6 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   Future<void> _loadVisibleTiles({bool firstLoad = false}) async {
     final cam = _mapController.camera;
     final b = cam.visibleBounds;
-    if (b == null) return;
 
     final tileIds = HiveService.tileIdsForRect(
       b.southWest.latitude,
