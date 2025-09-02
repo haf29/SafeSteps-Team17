@@ -223,16 +223,6 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
         : const LatLng(33.8886, 35.4955); // Beirut fallback
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Map'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.safety_check),
-            tooltip: 'Open Safety',
-            onPressed: () => Navigator.of(context).pushNamed('/safety'),
-          ),
-        ],
-      ),
       body: SafeArea(
         child: AnimatedBuilder(
           animation: _glowAnim,
@@ -313,13 +303,6 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
             );
           },
         ),
-      ),
-
-      // Quick access to Safety from the map
-      floatingActionButton: FloatingActionButton.extended(
-        icon: const Icon(Icons.safety_check),
-        label: const Text('Safety'),
-        onPressed: () => Navigator.of(context).pushNamed('/safety'),
       ),
     );
   }

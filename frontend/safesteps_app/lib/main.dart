@@ -11,6 +11,7 @@ import 'screens/confirm_screen.dart';
 import 'screens/map_screen.dart';
 import 'screens/report_screen.dart';
 import 'screens/safety_navigator_page.dart';
+import 'screens/prediction_screen.dart'; 
 
 import 'services/auth_api.dart';
 
@@ -64,6 +65,7 @@ class _SafeStepsAppState extends State<SafeStepsApp> {
         '/map': (ctx) => const MapScreen(),
         '/report': (ctx) => const ReportScreen(),
         '/safety': (ctx) => const SafetyNavigatorPage(),
+        '/predict': (ctx) => const PredictionScreen(),
       },
       home: FutureBuilder<bool>(
         future: _isLoggedIn,
@@ -103,6 +105,7 @@ class _AuthedHomeState extends State<_AuthedHome> {
       const MapScreen(),
       const SafetyNavigatorPage(), // only visible after login
       const ReportScreen(),
+      const PredictionScreen(),
     ];
 
     return Scaffold(
@@ -135,6 +138,11 @@ class _AuthedHomeState extends State<_AuthedHome> {
             icon: Icon(Icons.report_outlined),
             selectedIcon: Icon(Icons.report),
             label: 'Report',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.analytics_outlined),
+            selectedIcon: Icon(Icons.analytics),
+            label: 'Predict',
           ),
         ],
       ),
