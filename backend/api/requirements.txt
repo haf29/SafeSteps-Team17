@@ -8,3 +8,6 @@ h3>=3.7
 shapely>=2.0
 python-dotenv>=1.0
 email-validator
+httpx>=0.24
+beautifulsoup4>=4.12
+google-generativeai>=0.3

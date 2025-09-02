@@ -7,9 +7,10 @@ import 'package:http/http.dart' as http;
 //   API_PREFIX:     /api  (leave empty if your FastAPI has no prefix)
 // Example (PowerShell):
 // flutter run -d chrome --dart-define=API_BASE_URL=http://127.0.0.1:8000 --dart-define=API_PREFIX= --dart-define=WEB_MAPS_ENABLED=true
+const  String API_BASE_URL="http://51.20.9.164:8000";
 const String _baseUrl = String.fromEnvironment(
   'API_BASE_URL',
-  defaultValue: 'http://127.0.0.1:8000',
+  defaultValue: 'http://51.20.9.164:8000',
 );
 const String _prefix = String.fromEnvironment('API_PREFIX', defaultValue: '');
 
@@ -263,7 +264,7 @@ List<LatLng> decodePolyline(String encoded) {
   final List<LatLng> points = [];
   int index = 0, lat = 0, lng = 0;
 
-  int _decodeChunk() {
+  int decodeChunk() {
     int result = 0, shift = 0, b;
     do {
       b = encoded.codeUnitAt(index++) - 63;
@@ -274,8 +275,8 @@ List<LatLng> decodePolyline(String encoded) {
   }
 
   while (index < encoded.length) {
-    lat += _decodeChunk();
-    lng += _decodeChunk();
+    lat += decodeChunk();
+    lng += decodeChunk();
     points.add(LatLng(lat: lat / 1e5, lng: lng / 1e5));
   }
   return points;

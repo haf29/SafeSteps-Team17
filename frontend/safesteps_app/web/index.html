@@ -1,47 +1,28 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <!-- If you serve your app from a sub-path, set this at build time -->
-  <base href="$FLUTTER_BASE_HREF">
-
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=Edge">
   <meta name="description" content="SafeSteps demo">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="google_maps_api_key" content="YOUR_WEB_MAPS_API_KEY">
 
+  <title>SafeSteps</title>
+
+  <!-- ✅ Google Maps JS API (Browser Key) -->
+  <!-- Replace the key below with your frontend/browser key -->
+  <script async
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCvc1IvlTa58E0UwitYeXHLWQLb2Ht5jpE&libraries=places">
+  </script>
 
   <!-- PWA / icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="demo">
+  <meta name="apple-mobile-web-app-title" content="SafeSteps">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
   <link rel="icon" type="image/png" href="favicon.png"/>
   <link rel="manifest" href="manifest.json">
-
-  <!-- 🌐 Google Maps API key for Web (fill this in) -->
-  <!-- Replace VALUE below with your Maps JavaScript API key -->
-  <meta name="google_maps_api_key" content="YOUR_WEB_MAPS_API_KEY">
-
-  <title>demo</title>
-
-  <!-- ✅ Auto-load Google Maps JS using the key above.
-       The google_maps_flutter_web plugin will detect it's already present
-       and won't try to load it again, avoiding double-load warnings. -->
-  <script>
-    (function () {
-      var meta = document.querySelector('meta[name="google_maps_api_key"]');
-      if (!meta || !meta.content) return;
-      var script = document.createElement('script');
-      // Add libraries=places if you later need Places/Autocomplete on web
-      script.src = 'https://maps.googleapis.com/maps/api/js?key='
-                   + encodeURIComponent(meta.content);
-      script.async = true;
-      script.defer = true;
-      document.head.appendChild(script);
-    })();
-  </script>
 </head>
+
 <body>
   <!-- Flutter boot loader -->
   <script src="flutter_bootstrap.js" async></script>

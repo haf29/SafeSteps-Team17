@@ -84,7 +84,7 @@ class _SafeStepsAppState extends State<SafeStepsApp> {
 }
 
 class _AuthedHome extends StatefulWidget {
-  const _AuthedHome({super.key});
+  const _AuthedHome();
 
   @override
   State<_AuthedHome> createState() => _AuthedHomeState();

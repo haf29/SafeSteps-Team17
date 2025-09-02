@@ -4,7 +4,7 @@ from datetime import datetime
 
 # Payload coming FROM the Flutter app (keep these names exactly)
 class IncidentIn(BaseModel):
-    incident_type: Literal["murder", "assault", "theft", "harassment"] = Field(
+    incident_type: Literal["murder", "assault", "theft", "harassment", "robbery"] = Field(
         ..., description="Type of incident (lowercase)"
     )
     timestamp: datetime = Field(..., description="UTC time when incident occurred")

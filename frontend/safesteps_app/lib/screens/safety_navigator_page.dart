@@ -482,7 +482,7 @@ class _SafetyNavigatorPageState extends State<SafetyNavigatorPage>
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   DropdownButtonFormField<String>(
-                    value: mode,
+                    initialValue: mode,
                     decoration: const InputDecoration(labelText: 'Mode'),
                     items: const [
                       DropdownMenuItem(value: 'walking', child: Text('Walking')),
@@ -606,7 +606,7 @@ class _SafetyNavigatorPageState extends State<SafetyNavigatorPage>
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   DropdownButtonFormField<String>(
-                    value: mode,
+                    initialValue: mode,
                     decoration: const InputDecoration(labelText: 'Mode'),
                     items: const [
                       DropdownMenuItem(value: 'walking', child: Text('Walking')),
