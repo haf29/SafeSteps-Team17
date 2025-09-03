@@ -114,33 +114,47 @@ def categorize_score(score: float) -> str:
     return "#FF000"
 
 def find_nearest_safe_hex(
-    start_hex: str,
+    origin_hex: str,
     *,
-    safe_threshold: float = 3.0,
-    max_rings: int = 3,
+    safe_threshold: float = 5.0,
+    max_rings: int = 4,
     get_severity_by_hex: Optional[Callable[[str], Optional[float]]] = None,
+    city: Optional[str] = None,   # accepted for backwards compatibility; ignored here
 ) -> Optional[str]:
     """
-    Find the nearest hex whose severity <= safe_threshold by expanding ring-by-ring.
-    You MUST pass `get_severity_by_hex(hex_id) -> Optional[float]`.
-    Returns the first qualifying neighbor in increasing ring distance, else None.
+    Return the first hex (starting from origin, expanding ring-by-ring) whose severity
+    is <= safe_threshold. If severity for a hex is unknown, that hex is skipped.
+
+    We avoid deprecated h3.k_ring_distances and instead use grid_disk to build rings.
     """
-    # must have H3 available
-    if not _HAS_H3:
-        return None
+    # 0) check current location first
+    if get_severity_by_hex:
+        sev0 = get_severity_by_hex(origin_hex)
+        if sev0 is not None and sev0 <= safe_threshold:
+            return origin_hex
 
-    # you *must* pass a lookup, otherwise we can't score any hexes
-    if get_severity_by_hex is None:
-        return None
+    # prev_disk keeps everything already examined (distance < k)
+    prev_disk = {origin_hex}
 
-    # distance-banded rings: index 0 is {start_hex}, then 1..max_rings are the shells we want
-    rings = _rings_by_distance(start_hex, max_rings)
+    for k in range(1, int(max_rings) + 1):
+        # all cells within distance k
+        disk_k = set(h3.grid_disk(origin_hex, k))   # works in h3 v3 & v4
+        # new ring = cells at exactly distance k
+        ring_k = disk_k - prev_disk
 
-    # iterate outward, skipping distance 0 (the center)
-    for dist in range(1, min(max_rings, len(rings) - 1) + 1):
-        for neighbor in rings[dist]:
-            sev = get_severity_by_hex(neighbor)
+        if not ring_k:
+            prev_disk = disk_k
+            continue
+
+        if get_severity_by_hex is None:
+            # if no lookup func was given, treat "exists" as safe — usually you *do* pass a lookup
+            return next(iter(ring_k))
+
+        for cell in ring_k:
+            sev = get_severity_by_hex(cell)
             if sev is not None and sev <= safe_threshold:
-                return neighbor
+                return cell
+
+        prev_disk = disk_k
 
     return None

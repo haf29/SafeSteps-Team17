@@ -1,7 +1,7 @@
 # backend/api/main.py
 from __future__ import annotations
 # main.py (or wherever your app boots)
-from services import h3_compat  # noqa: F401  (just to run the monkey patch)
+from services import h3
 
 import os
 import logging
