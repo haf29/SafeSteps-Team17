@@ -20,6 +20,127 @@ ZONES_CITY_INDEX = os.getenv("ZONES_CITY_INDEX", "city-index")
 dynamodb = boto3.resource("dynamodb", region_name=REGION)
 zones_table = dynamodb.Table(ZONES_TABLE)
 incidents_table = dynamodb.Table(INCIDENTS_TABLE)
+# --- City lookup (used by routing) ------------------------------------------
+import json, math, os
+from functools import lru_cache
+from typing import Dict, Any, List, Tuple, Optional
+
+# tolerant distance helper
+def _haversine_km(lat1, lon1, lat2, lon2):
+    R = 6371.0088
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlmb = math.radians(lon2 - lon1)
+    a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlmb/2)**2
+    return 2*R*math.asin(math.sqrt(a))
+
+@lru_cache(maxsize=1)
+def _load_cities() -> List[Dict[str, Any]]:
+    """
+    Loads cities.json from one of:
+      - $CITY_FILE
+      - /opt/safesteps/data/cities.json
+      - ../data/cities.json (relative to this file)
+    Returns a list of city dicts. Each city must have a name and a bbox.
+    Supported bbox formats:
+      - {'min_lat':..,'min_lng':..,'max_lat':..,'max_lng':..}
+      - {'bbox': [min_lng, min_lat, max_lng, max_lat]}  # common GeoJSON-ish
+      - {'bbox': [min_lat, min_lng, max_lat, max_lng]}  # tolerant
+    """
+    candidates = []
+    env_path = os.getenv("CITY_FILE")
+    if env_path:
+        candidates.append(env_path)
+    candidates += [
+        "/opt/safesteps/data/cities.json",
+        os.path.join(os.path.dirname(__file__), "..", "data", "cities.json"),
+    ]
+
+    for p in candidates:
+        try:
+            with open(p, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                # data may be a dict with "cities" or a list directly
+                cities = data.get("cities") if isinstance(data, dict) else data
+                if not isinstance(cities, list):
+                    continue
+                # normalize bbox
+                norm = []
+                for c in cities:
+                    name = c.get("name") or c.get("city") or c.get("id")
+                    bbox = c.get("bbox") or c.get("bounds") or c.get("boundary") or c.get("bbox_coords")
+                    if isinstance(bbox, dict):
+                        min_lat = bbox.get("min_lat") or bbox.get("south") or bbox.get("minLat")
+                        min_lng = bbox.get("min_lng") or bbox.get("west")  or bbox.get("minLng")
+                        max_lat = bbox.get("max_lat") or bbox.get("north") or bbox.get("maxLat")
+                        max_lng = bbox.get("max_lng") or bbox.get("east")  or bbox.get("maxLng")
+                    elif isinstance(bbox, (list, tuple)) and len(bbox) == 4:
+                        # try to guess ordering
+                        a,b,c2,d = bbox
+                        # if longitudes look bigger in absolute value, assume [min_lng,min_lat,max_lng,max_lat]
+                        if abs(a) > abs(b):  # likely [lng, lat, lng, lat]
+                            min_lng, min_lat, max_lng, max_lat = a,b,c2,d
+                        else:                # [lat, lng, lat, lng]
+                            min_lat, min_lng, max_lat, max_lng = a,b,c2,d
+                    else:
+                        # try separate keys (legacy)
+                        min_lat = c.get("min_lat"); min_lng = c.get("min_lng")
+                        max_lat = c.get("max_lat"); max_lng = c.get("max_lng")
+
+                    if None in (name, min_lat, min_lng, max_lat, max_lng):
+                        continue
+                    norm.append({
+                        "name": name,
+                        "min_lat": float(min_lat),
+                        "min_lng": float(min_lng),
+                        "max_lat": float(max_lat),
+                        "max_lng": float(max_lng),
+                        "center": (
+                            (float(min_lat)+float(max_lat))/2.0,
+                            (float(min_lng)+float(max_lng))/2.0,
+                        ),
+                    })
+                if norm:
+                    # optional: sort for deterministic behavior
+                    norm.sort(key=lambda x: x["name"])
+                    # log once where we loaded from
+                    try:
+                        print(f"Resolved CITY_FILE path: {os.path.abspath(p)}")
+                    except Exception:
+                        pass
+                    return norm
+        except FileNotFoundError:
+            continue
+        except Exception as e:
+            # don't crash on malformed candidate; try next
+            try:
+                print(f"Warning: failed to load cities from {p}: {e}")
+            except Exception:
+                pass
+            continue
+    # no file found; return empty list so callers can handle gracefully
+    return []
+
+def find_city(lat: float, lng: float) -> Optional[str]:
+    """
+    Returns the city name that contains (lat,lng). If none contain it,
+    returns the nearest city's name (by bbox center). If we have no cities,
+    returns None.
+    """
+    cities = _load_cities()
+    if not cities:
+        return None
+
+    # 1) inside a bbox?
+    for c in cities:
+        if (c["min_lat"] <= lat <= c["max_lat"]) and (c["min_lng"] <= lng <= c["max_lng"]):
+            return c["name"]
+
+    # 2) fallback to nearest center
+    best = min(cities, key=lambda c: _haversine_km(lat, lng, c["center"][0], c["center"][1]))
+    return best["name"]
+# ---------------------------------------------------------------------------
+
 def get_city_items_all(city: str, page_limit: int = 1000) -> List[Dict[str, Any]]:
     """
     FAST PATH: Query the city GSI and return all items with

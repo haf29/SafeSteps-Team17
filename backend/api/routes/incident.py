@@ -2,8 +2,7 @@ from fastapi import APIRouter, HTTPException
 from models.incident import IncidentIn
 from db.dynamo import add_incident
 from services.h3_utils import point_to_hex
-from services.zone_service import find_city
-
+from services.zone_service import _find_city_by_point as find_city
 router = APIRouter(tags=["incident"])
 
 
