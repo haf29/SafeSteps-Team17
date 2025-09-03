@@ -1,7 +1,7 @@
 # backend/api/main.py
 from __future__ import annotations
 # main.py (or wherever your app boots)
-from services import h3
+from services import h3_utils
 
 import os
 import logging
