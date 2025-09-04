@@ -135,6 +135,38 @@ class _SafetyNavigatorPageState extends State<SafetyNavigatorPage>
     _tab.dispose();
     super.dispose();
   }
+  // Fallback to Google Directions (street-following) if backend polyline is missing
+Future<List<gmaps.LatLng>> _directionsPolyline(LatLng a, LatLng b) async {
+  if (_GMAPS_KEY.isEmpty) return const [];
+
+  // your UI uses 'walking' | 'driving' | 'cycling'; Google expects 'bicycling'
+  final m = (mode == 'cycling') ? 'bicycling' : (mode == 'walking' ? 'walking' : 'driving');
+
+  try {
+    final url = Uri.parse(
+      'https://maps.googleapis.com/maps/api/directions/json'
+      '?origin=${a.lat},${a.lng}'
+      '&destination=${b.lat},${b.lng}'
+      '&mode=$m'
+      '&region=lb'
+      '&key=$_GMAPS_KEY',
+    );
+
+    final res = await http.get(url).timeout(const Duration(seconds: 12));
+    if (res.statusCode != 200) return const [];
+
+    final json = jsonDecode(res.body);
+    final routes = (json['routes'] as List?) ?? const [];
+    if (routes.isEmpty) return const [];
+
+    final poly = routes[0]['overview_polyline']['points'] as String;
+    final pts = decodePolyline(poly); // returns List<LatLng> (your model)
+    return pts.map((p) => gmaps.LatLng(p.lat, p.lng)).toList();
+  } catch (_) {
+    return const [];
+  }
+}
+
 
   Future<void> _bootstrapLocation() async {
     try {
@@ -428,26 +460,64 @@ class _SafetyNavigatorPageState extends State<SafetyNavigatorPage>
   }
 
   // ====== Directions fallback (street-following) ======
-  Future<List<gmaps.LatLng>> _directionsPolyline(LatLng a, LatLng b) async {
-    if (_GMAPS_KEY.isEmpty) return const [];
-    try {
-      final m = (mode == 'cycling') ? 'bicycling' : (mode == 'walking' ? 'walking' : 'driving');
-      final url = Uri.parse(
-        'https://maps.googleapis.com/maps/api/directions/json'
-        '?origin=${a.lat},${a.lng}&destination=${b.lat},${b.lng}&mode=$m&region=lb&key=$_GMAPS_KEY',
-      );
-      final res = await http.get(url).timeout(const Duration(seconds: 10));
-      if (res.statusCode != 200) return const [];
-      final json = jsonDecode(res.body);
-      final routes = (json['routes'] as List?) ?? const [];
-      if (routes.isEmpty) return const [];
-      final poly = routes[0]['overview_polyline']['points'] as String;
-      final pts = decodePolyline(poly);
-      return pts.map((p) => gmaps.LatLng(p.lat, p.lng)).toList();
-    } catch (_) {
-      return const [];
+ Future<List<gmaps.LatLng>> _directionsPolylines(LatLng a, LatLng b) async {
+  if (_GMAPS_KEY.isEmpty) return const [];
+
+  // Map UI mode to Google Directions mode
+  final gmMode = ((){
+    switch (mode) {
+      case 'cycling': return 'bicycling';
+      case 'walking': return 'walking';
+      case 'transit': return 'transit'; // keep if you want public transport
+      default: return 'driving';
     }
+  })();
+
+  final url = Uri.https(
+    'maps.googleapis.com',
+    '/maps/api/directions/json',
+    <String, String>{
+      'origin': '${a.lat},${a.lng}',
+      'destination': '${b.lat},${b.lng}',
+      'mode': gmMode,
+      'region': 'lb',        // bias to Lebanon
+      'avoid': 'ferries',    // optional
+      // 'alternatives': 'true', // uncomment if you want multiple candidates
+      'key': _GMAPS_KEY,
+    },
+  );
+
+  try {
+    final res = await http.get(url).timeout(const Duration(seconds: 12));
+    if (res.statusCode != 200) return const [];
+
+    final map = jsonDecode(res.body) as Map<String, dynamic>;
+    if ((map['status'] as String?) != 'OK') return const [];
+
+    final routes = (map['routes'] as List);
+    if (routes.isEmpty) return const [];
+
+    // ---- Option A: higher-fidelity path from steps (recommended) ----
+    final List<gmaps.LatLng> allPts = [];
+    final legs = (routes[0]['legs'] as List?) ?? const [];
+    for (final leg in legs) {
+      final steps = (leg['steps'] as List?) ?? const [];
+      for (final s in steps) {
+        final seg = decodePolyline((s['polyline'] as Map)['points'] as String);
+        allPts.addAll(seg.map((p) => gmaps.LatLng(p.lat, p.lng)));
+      }
+    }
+    if (allPts.length >= 2) return allPts;
+
+    // ---- Option B: fallback to overview polyline ----
+    final poly = (routes[0]['overview_polyline'] as Map)['points'] as String;
+    final pts = decodePolyline(poly);
+    return pts.map((p) => gmaps.LatLng(p.lat, p.lng)).toList();
+  } catch (e) {
+    // Optional: debugPrint('Directions error: $e');
+    return const [];
   }
+}
 
   // ====== draw helpers ======
   void _addChosenPolyline(List<gmaps.LatLng> gpts, String id) {
@@ -465,110 +535,162 @@ class _SafetyNavigatorPageState extends State<SafetyNavigatorPage>
   }
 
   Future<void> _drawPlanOnMap(SafestResponse res) async {
-    final chosen = res.chosen;
-    _polylines = {};
-    _markers = {
-      gmaps.Marker(
-        markerId: const gmaps.MarkerId('origin'),
-        position: gmaps.LatLng(_origin.lat, _origin.lng),
-        infoWindow: gmaps.InfoWindow(title: 'Origin', snippet: _originLabel),
-      ),
-      gmaps.Marker(
-        markerId: const gmaps.MarkerId('dest'),
-        position: gmaps.LatLng(_destination.lat, _destination.lng),
-        infoWindow: gmaps.InfoWindow(title: 'Destination', snippet: _destLabel),
-      ),
-    };
+  final chosen = res.chosen;
+  _polylines = {};
+  _markers = {
+    gmaps.Marker(
+      markerId: const gmaps.MarkerId('origin'),
+      position: gmaps.LatLng(_origin.lat, _origin.lng),
+      infoWindow: gmaps.InfoWindow(title: 'Origin', snippet: _originLabel),
+    ),
+    gmaps.Marker(
+      markerId: const gmaps.MarkerId('dest'),
+      position: gmaps.LatLng(_destination.lat, _destination.lng),
+      infoWindow: gmaps.InfoWindow(title: 'Destination', snippet: _destLabel),
+    ),
+  };
 
-    bool drew = false;
-    if (chosen.encodedPolyline != null) {
-      final gpts = decodePolyline(chosen.encodedPolyline!)
-          .map((p) => gmaps.LatLng(p.lat, p.lng))
-          .where((p) => _inLebanon(p.latitude, p.longitude))
-          .toList();
-      if (gpts.length >= 2) {
-        _addChosenPolyline(gpts, 'chosen');
-        _map?.animateCamera(gmaps.CameraUpdate.newLatLngBounds(_bounds(gpts), 40));
-        drew = true;
-      }
-    }
-    if (!drew) {
-      final gpts = await _directionsPolyline(_origin, _destination);
-      if (gpts.length >= 2) {
-        _addChosenPolyline(gpts, 'dir_fallback');
-        _map?.animateCamera(gmaps.CameraUpdate.newLatLngBounds(_bounds(gpts), 40));
-        drew = true;
-      }
-    }
-    if (!drew) {
-      final a = gmaps.LatLng(_origin.lat, _origin.lng);
-      final b = gmaps.LatLng(_destination.lat, _destination.lng);
+  bool drew = false;
+
+  // 1) Prefer backend polyline if present
+  if (chosen.encodedPolyline != null) {
+    final gpts = decodePolyline(chosen.encodedPolyline!)
+        .map((p) => gmaps.LatLng(p.lat, p.lng))
+        .toList();
+    if (gpts.length >= 2) {
       _polylines.add(gmaps.Polyline(
-        polylineId: const gmaps.PolylineId('fallback'),
-        points: [a, b],
-        width: 3,
-        color: Colors.black54,
+        polylineId: const gmaps.PolylineId('chosen'),
+        points: gpts,
+        width: 6,
+        color: Colors.blue,
         geodesic: true,
-        patterns: <gmaps.PatternItem>[ gmaps.PatternItem.dash(20), gmaps.PatternItem.gap(10) ],
+        startCap: gmaps.Cap.roundCap,
+        endCap: gmaps.Cap.roundCap,
+        jointType: gmaps.JointType.round,
       ));
-      _map?.animateCamera(gmaps.CameraUpdate.newLatLngBounds(_bounds([a, b]), 60));
+      _map?.animateCamera(gmaps.CameraUpdate.newLatLngBounds(_bounds(gpts), 40));
+      drew = true;
     }
-    setState(() {});
   }
 
-  Future<void> _drawExitOnMap(ExitSuccess res) async {
-    final chosen = res.route.chosen;
-    _polylines = {};
-    _markers = {
-      gmaps.Marker(
-        markerId: const gmaps.MarkerId('pos'),
-        position: gmaps.LatLng(_position.lat, _position.lng),
-        infoWindow: const gmaps.InfoWindow(title: 'Position'),
-      ),
-      gmaps.Marker(
-        markerId: const gmaps.MarkerId('safe'),
-        position: gmaps.LatLng(res.safeTarget.lat, res.safeTarget.lng),
-        infoWindow: const gmaps.InfoWindow(title: 'Nearest safe'),
-      ),
-    };
-
-    bool drew = false;
-    if (chosen.encodedPolyline != null) {
-      final gpts = decodePolyline(chosen.encodedPolyline!)
-          .map((p) => gmaps.LatLng(p.lat, p.lng))
-          .where((p) => _inLebanon(p.latitude, p.longitude))
-          .toList();
-      if (gpts.length >= 2) {
-        _addChosenPolyline(gpts, 'exit');
-        _map?.animateCamera(gmaps.CameraUpdate.newLatLngBounds(_bounds(gpts), 40));
-        drew = true;
-      }
-    }
-    if (!drew) {
-      final gpts = await _directionsPolyline(
-        _position, LatLng(lat: res.safeTarget.lat, lng: res.safeTarget.lng),
-      );
-      if (gpts.length >= 2) {
-        _addChosenPolyline(gpts, 'exit_fallback');
-        _map?.animateCamera(gmaps.CameraUpdate.newLatLngBounds(_bounds(gpts), 40));
-        drew = true;
-      }
-    }
-    if (!drew) {
-      final a = gmaps.LatLng(_position.lat, _position.lng);
-      final b = gmaps.LatLng(res.safeTarget.lat, res.safeTarget.lng);
+  // 2) Otherwise: Google Directions fallback
+  if (!drew) {
+    final gpts = await _directionsPolyline(_origin, _destination);
+    if (gpts.length >= 2) {
       _polylines.add(gmaps.Polyline(
-        polylineId: const gmaps.PolylineId('fallback_exit'),
-        points: [a, b],
-        width: 3,
-        color: Colors.black54,
+        polylineId: const gmaps.PolylineId('dir_fallback'),
+        points: gpts,
+        width: 6,
+        color: Colors.blue,
         geodesic: true,
-        patterns: <gmaps.PatternItem>[ gmaps.PatternItem.dash(20), gmaps.PatternItem.gap(10) ],
+        startCap: gmaps.Cap.roundCap,
+        endCap: gmaps.Cap.roundCap,
+        jointType: gmaps.JointType.round,
       ));
-      _map?.animateCamera(gmaps.CameraUpdate.newLatLngBounds(_bounds([a, b]), 60));
+      _map?.animateCamera(gmaps.CameraUpdate.newLatLngBounds(_bounds(gpts), 40));
+      drew = true;
     }
-    setState(() {});
   }
+
+  // 3) Last resort: straight dashed line (so something is visible)
+  if (!drew) {
+    final a = gmaps.LatLng(_origin.lat, _origin.lng);
+    final b = gmaps.LatLng(_destination.lat, _destination.lng);
+    _polylines.add(gmaps.Polyline(
+      polylineId: const gmaps.PolylineId('straight_fallback'),
+      points: [a, b],
+      width: 3,
+      color: Colors.black54,
+      geodesic: true,
+      // NOTE: don't make this list const — dash/gap are factory calls
+      patterns: <gmaps.PatternItem>[gmaps.PatternItem.dash(20), gmaps.PatternItem.gap(10)],
+    ));
+    _map?.animateCamera(gmaps.CameraUpdate.newLatLngBounds(_bounds([a, b]), 60));
+  }
+
+  setState(() {});
+}
+
+
+ Future<void> _drawExitOnMap(ExitSuccess res) async {
+  final chosen = res.route.chosen;
+  _polylines = {};
+  _markers = {
+    gmaps.Marker(
+      markerId: const gmaps.MarkerId('pos'),
+      position: gmaps.LatLng(_position.lat, _position.lng),
+      infoWindow: const gmaps.InfoWindow(title: 'Position'),
+    ),
+    gmaps.Marker(
+      markerId: const gmaps.MarkerId('safe'),
+      position: gmaps.LatLng(res.safeTarget.lat, res.safeTarget.lng),
+      infoWindow: const gmaps.InfoWindow(title: 'Nearest safe'),
+    ),
+  };
+
+  bool drew = false;
+
+  // 1) Backend polyline if present
+  if (chosen.encodedPolyline != null) {
+    final gpts = decodePolyline(chosen.encodedPolyline!)
+        .map((p) => gmaps.LatLng(p.lat, p.lng))
+        .toList();
+    if (gpts.length >= 2) {
+      _polylines.add(gmaps.Polyline(
+        polylineId: const gmaps.PolylineId('exit'),
+        points: gpts,
+        width: 6,
+        color: Colors.blue,
+        geodesic: true,
+        startCap: gmaps.Cap.roundCap,
+        endCap: gmaps.Cap.roundCap,
+        jointType: gmaps.JointType.round,
+      ));
+      _map?.animateCamera(gmaps.CameraUpdate.newLatLngBounds(_bounds(gpts), 40));
+      drew = true;
+    }
+  }
+
+  // 2) Directions fallback if backend didn’t return a polyline
+  if (!drew) {
+    final gpts = await _directionsPolyline(
+      _position,
+      LatLng(lat: res.safeTarget.lat, lng: res.safeTarget.lng),
+    );
+    if (gpts.length >= 2) {
+      _polylines.add(gmaps.Polyline(
+        polylineId: const gmaps.PolylineId('exit_fallback'),
+        points: gpts,
+        width: 6,
+        color: Colors.blue,
+        geodesic: true,
+        startCap: gmaps.Cap.roundCap,
+        endCap: gmaps.Cap.roundCap,
+        jointType: gmaps.JointType.round,
+      ));
+      _map?.animateCamera(gmaps.CameraUpdate.newLatLngBounds(_bounds(gpts), 40));
+      drew = true;
+    }
+  }
+
+  // 3) Straight dashed line as last resort
+  if (!drew) {
+    final a = gmaps.LatLng(_position.lat, _position.lng);
+    final b = gmaps.LatLng(res.safeTarget.lat, res.safeTarget.lng);
+    _polylines.add(gmaps.Polyline(
+      polylineId: const gmaps.PolylineId('straight_exit'),
+      points: [a, b],
+      width: 3,
+      color: Colors.black54,
+      geodesic: true,
+      patterns: <gmaps.PatternItem>[gmaps.PatternItem.dash(20), gmaps.PatternItem.gap(10)],
+    ));
+    _map?.animateCamera(gmaps.CameraUpdate.newLatLngBounds(_bounds([a, b]), 60));
+  }
+
+  setState(() {});
+}
+
 
   gmaps.LatLngBounds _bounds(List<gmaps.LatLng> pts) {
     final inside = pts.where((p) => _inLebanon(p.latitude, p.longitude)).toList();
