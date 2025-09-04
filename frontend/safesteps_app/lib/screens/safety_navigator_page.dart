@@ -1,19 +1,41 @@
+// lib/screens/safety_navigator_page.dart
+import 'dart:async';
+import 'dart:convert';
+import 'dart:math' show min, max, cos, sin, atan2, sqrt;
+
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart'; // kIsWeb, Factory
+import 'package:flutter/gestures.dart';   // EagerGestureRecognizer
 import 'package:google_maps_flutter/google_maps_flutter.dart' as gmaps;
 import 'package:geolocator/geolocator.dart';
-import 'package:geocoding/geocoding.dart' as gc;
+import 'package:geocoding/geocoding.dart' as gc; // used on mobile if Google key missing
+import 'package:http/http.dart' as http;
 
 import '../services/routes_api.dart';
 
-// ===== bounds of Lebanon (still enforced silently) =====
+// ===== bounds of Lebanon (still enforced) =====
 const double _LEB_MIN_LAT = 33.046;
 const double _LEB_MAX_LAT = 34.693;
 const double _LEB_MIN_LNG = 35.098;
 const double _LEB_MAX_LNG = 36.623;
 
+final gmaps.LatLngBounds _LB_BOUNDS = gmaps.LatLngBounds(
+  southwest: const gmaps.LatLng(_LEB_MIN_LAT, _LEB_MIN_LNG),
+  northeast: const gmaps.LatLng(_LEB_MAX_LAT, _LEB_MAX_LNG),
+);
+
+bool _inLebanon(double lat, double lng) =>
+    lat >= _LEB_MIN_LAT && lat <= _LEB_MAX_LAT && lng >= _LEB_MIN_LNG && lng <= _LEB_MAX_LNG;
+
 // enable Google map on web only when you provide a JS key and run with --dart-define=WEB_MAPS_ENABLED=true
 const bool _WEB_MAPS_ENABLED = bool.fromEnvironment('WEB_MAPS_ENABLED', defaultValue: false);
+
+// Google key (Places + Geocoding + Directions)
+const String _GMAPS_KEY = String.fromEnvironment('GEOCODING_API_KEY', defaultValue: '');
+
+// Nominatim (OSM) endpoints for web-safe fallback search/reverse
+const String _OSM_SEARCH = 'https://nominatim.openstreetmap.org/search';
+const String _OSM_REVERSE = 'https://nominatim.openstreetmap.org/reverse';
 
 // quick pick cities (for convenience)
 class _City {
@@ -32,6 +54,17 @@ const List<_City> _quick = <_City>[
   _City('Baalbek', 34.0050, 36.2180),
 ];
 
+class _PlacePred { final String desc, placeId; _PlacePred(this.desc, this.placeId); }
+
+class _Poi {
+  final String name;
+  final String? placeId;
+  final LatLng loc;
+  final String secondary;
+  final double distanceM;
+  _Poi({required this.name, this.placeId, required this.loc, required this.secondary, required this.distanceM});
+}
+
 enum PickTarget { origin, destination, position }
 
 class SafetyNavigatorPage extends StatefulWidget {
@@ -45,9 +78,9 @@ class _SafetyNavigatorPageState extends State<SafetyNavigatorPage>
   late final TabController _tab;
 
   // shared
-  String mode = 'walking';
+  String mode = 'walking'; // walking | driving | cycling
   int resolution = 9;
-  String? cityContext; // optional hint for backend scoring
+  String? cityContext;
 
   // plan route state
   LatLng _origin = const LatLng(lat: 33.8938, lng: 35.5018);
@@ -73,6 +106,13 @@ class _SafetyNavigatorPageState extends State<SafetyNavigatorPage>
   double? prevScore;
   String? phone, topicArn;
 
+  // live tracking
+  StreamSubscription<Position>? _posSub;
+  bool liveFollowPlan = false;
+  bool liveFollowExit = false;
+  bool autoReplan = true;
+  final List<gmaps.LatLng> _liveTrail = [];
+
   // google maps
   gmaps.GoogleMapController? _map;
   Set<gmaps.Marker> _markers = {};
@@ -86,6 +126,33 @@ class _SafetyNavigatorPageState extends State<SafetyNavigatorPage>
     _origin = _clampLB(_origin);
     _destination = _clampLB(_destination);
     _position = _clampLB(_position);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _bootstrapLocation());
+  }
+
+  @override
+  void dispose() {
+    _posSub?.cancel();
+    _tab.dispose();
+    super.dispose();
+  }
+
+  Future<void> _bootstrapLocation() async {
+    try {
+      if (!await _ensureLocPerm()) return;
+      final pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.bestForNavigation,
+      );
+      if (!_inLebanon(pos.latitude, pos.longitude)) return;
+      final here = LatLng(lat: pos.latitude, lng: pos.longitude);
+      final label = await _reverseLabel(here);
+      setState(() {
+        _origin = here;
+        _position = here;
+        _originLabel = 'Live: $label';
+        _posLabel = 'Live: $label';
+      });
+      _panTo(here, zoom: 14);
+    } catch (_) {}
   }
 
   LatLng _clampLB(LatLng p) => LatLng(
@@ -99,83 +166,183 @@ class _SafetyNavigatorPageState extends State<SafetyNavigatorPage>
     if (perm == LocationPermission.denied) {
       perm = await Geolocator.requestPermission();
     }
-    return perm == LocationPermission.always ||
-        perm == LocationPermission.whileInUse;
+    return perm == LocationPermission.always || perm == LocationPermission.whileInUse;
   }
 
-  Future<LatLng?> _geocode(String q) async {
+  // ---- Google Places (primary) ----
+  Future<List<_PlacePred>> _placesAutocomplete(String input) async {
+    if (_GMAPS_KEY.isEmpty || input.trim().isEmpty) return const [];
     try {
-      final list = await gc.locationFromAddress('$q, Lebanon');
-      if (list.isEmpty) return null;
-      final loc = list.first;
-      return _clampLB(LatLng(lat: loc.latitude, lng: loc.longitude));
+      final uri = Uri.parse(
+        'https://maps.googleapis.com/maps/api/place/autocomplete/json'
+        '?input=${Uri.encodeComponent(input)}&components=country:LB&key=$_GMAPS_KEY',
+      );
+      final res = await http.get(uri).timeout(const Duration(seconds: 10));
+      if (res.statusCode != 200) return const [];
+      final j = jsonDecode(res.body);
+      final preds = (j['predictions'] as List?) ?? const [];
+      return preds.map((p) => _PlacePred(p['description'], p['place_id'])).toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<LatLng?> _placeDetails(String placeId) async {
+    if (_GMAPS_KEY.isEmpty) return null;
+    try {
+      final uri = Uri.parse(
+        'https://maps.googleapis.com/maps/api/place/details/json'
+        '?place_id=$placeId&fields=geometry/location,name&key=$_GMAPS_KEY',
+      );
+      final res = await http.get(uri).timeout(const Duration(seconds: 10));
+      if (res.statusCode != 200) return null;
+      final j = jsonDecode(res.body);
+      final r = j['result'];
+      if (r == null) return null;
+      final loc = r['geometry']?['location'];
+      if (loc == null) return null;
+      final lat = (loc['lat'] as num).toDouble();
+      final lng = (loc['lng'] as num).toDouble();
+      if (!_inLebanon(lat, lng)) return null;
+      return LatLng(lat: lat, lng: lng);
     } catch (_) {
       return null;
     }
   }
 
-  void _panTo(LatLng p) {
+  // ---- OSM/Nominatim fallback (web-friendly, no key) ----
+  Future<LatLng?> _osmGeocodeLB(String q) async {
+    try {
+      final uri = Uri.parse(
+        '$_OSM_SEARCH?q=${Uri.encodeComponent(q)}'
+        '&format=json&limit=5&countrycodes=lb'
+        '&viewbox=$_LEB_MIN_LNG,$_LEB_MAX_LAT,$_LEB_MAX_LNG,$_LEB_MIN_LAT&bounded=1',
+      );
+      final res = await http.get(uri, headers: {'User-Agent': 'safesteps-app'}).timeout(const Duration(seconds: 10));
+      if (res.statusCode != 200) return null;
+      final list = jsonDecode(res.body) as List;
+      if (list.isEmpty) return null;
+      final first = list.first;
+      final lat = double.parse(first['lat']);
+      final lng = double.parse(first['lon']);
+      if (!_inLebanon(lat, lng)) return null;
+      return LatLng(lat: lat, lng: lng);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<String> _osmReverse(LatLng p) async {
+    try {
+      final uri = Uri.parse(
+        '$_OSM_REVERSE?lat=${p.lat}&lon=${p.lng}&format=jsonv2'
+        '&zoom=17&addressdetails=1',
+      );
+      final res = await http.get(uri, headers: {'User-Agent': 'safesteps-app'}).timeout(const Duration(seconds: 10));
+      if (res.statusCode != 200) return 'Pinned on map';
+      final j = jsonDecode(res.body);
+      return (j['display_name'] as String?) ?? 'Pinned on map';
+    } catch (_) {
+      return 'Pinned on map';
+    }
+  }
+
+  // ---- Free text geocode with layered fallbacks ----
+  Future<LatLng?> _geocode(String q) async {
+    // 1) Places Specific result (Autocomplete -> Place details)
+    if (_GMAPS_KEY.isNotEmpty) {
+      final preds = await _placesAutocomplete(q);
+      if (preds.isNotEmpty) {
+        final p = await _placeDetails(preds.first.placeId);
+        if (p != null) return p;
+      }
+      // 2) Google Geocoding fallback
+      try {
+        final uri = Uri.parse(
+          'https://maps.googleapis.com/maps/api/geocode/json'
+          '?address=${Uri.encodeComponent(q)}&components=country:LB&key=$_GMAPS_KEY',
+        );
+        final res = await http.get(uri).timeout(const Duration(seconds: 10));
+        if (res.statusCode == 200) {
+          final json = jsonDecode(res.body);
+          final results = (json['results'] as List?) ?? const [];
+          if (results.isNotEmpty) {
+            final loc = results[0]['geometry']['location'];
+            final lat = (loc['lat'] as num).toDouble();
+            final lng = (loc['lng'] as num).toDouble();
+            if (_inLebanon(lat, lng)) return LatLng(lat: lat, lng: lng);
+          }
+        }
+      } catch (_) {}
+    }
+
+    // 3) OSM web-safe fallback
+    if (kIsWeb) {
+      return _osmGeocodeLB(q);
+    }
+
+    // 4) Device geocoder (mobile)
+    try {
+      final list = await gc.locationFromAddress('$q, Lebanon', localeIdentifier: 'en_LB');
+      if (list.isEmpty) return null;
+      final loc = list.first;
+      if (!_inLebanon(loc.latitude, loc.longitude)) return null;
+      return LatLng(lat: loc.latitude, lng: loc.longitude);
+    } catch (_) { return null; }
+  }
+
+  Future<String> _reverseLabel(LatLng p) async {
+    if (_GMAPS_KEY.isNotEmpty) {
+      try {
+        final uri = Uri.parse(
+          'https://maps.googleapis.com/maps/api/geocode/json'
+          '?latlng=${p.lat},${p.lng}'
+          '&result_type=street_address|route|sublocality|locality'
+          '&key=$_GMAPS_KEY',
+        );
+        final res = await http.get(uri).timeout(const Duration(seconds: 10));
+        if (res.statusCode == 200) {
+          final json = jsonDecode(res.body);
+          final results = (json['results'] as List?) ?? const [];
+          if (results.isNotEmpty) return results[0]['formatted_address'] as String;
+        }
+      } catch (_) {}
+    }
+    if (kIsWeb) return _osmReverse(p);
+    try {
+      final placemarks = await gc.placemarkFromCoordinates(p.lat, p.lng, localeIdentifier: 'en_LB');
+      if (placemarks.isEmpty) return 'Pinned on map';
+      final pm = placemarks.first;
+      final parts = [pm.name, pm.street, pm.subLocality, pm.locality]
+          .where((e) => (e ?? '').trim().isNotEmpty)
+          .map((e) => e!.trim()).toList();
+      return parts.isEmpty ? 'Pinned on map' : parts.first;
+    } catch (_) { return 'Pinned on map'; }
+  }
+
+  void _panTo(LatLng p, {double zoom = 14}) {
     if (_map == null || _usePlaceholder) return;
-    _map!.animateCamera(
-      gmaps.CameraUpdate.newLatLng(gmaps.LatLng(p.lat, p.lng)),
-    );
+    if (!_inLebanon(p.lat, p.lng)) return;
+    _map!.animateCamera(gmaps.CameraUpdate.newLatLngZoom(gmaps.LatLng(p.lat, p.lng), zoom));
   }
 
   // ====== backend calls ======
   Future<void> _plan() async {
     setState(() { planBusy = true; planErr = null; planRes = null; });
     try {
-      final res = await postSafestRoute(
-        RouteRequest(
-          origin: _origin,
-          destination: _destination,
-          city: (cityContext?.trim().isEmpty ?? true) ? null : cityContext,
-          resolution: resolution,
-          alternatives: alternatives,
-          mode: mode,
-          alpha: alpha,
-        ),
-      );
-      setState(() => planRes = res);
-      if (!_usePlaceholder) _drawPlanOnMap(res);
-    } catch (e) {
-      setState(() {
-        planErr = e.toString();
-        _polylines = {};
-        _markers = {};
-      });
-    } finally {
-      setState(() => planBusy = false);
-    }
-  }
-
-  /// Find nearest safe hex from current **origin** and route there.
-  Future<void> _planToSafestNearby() async {
-    setState(() { planBusy = true; planErr = null; });
-    try {
-      final res = await postExitToSafety(ExitToSafetyRequest(
-        position: _origin,
+      final res = await postSafestRoute(RouteRequest(
+        origin: _origin,
+        destination: _destination,
         city: (cityContext?.trim().isEmpty ?? true) ? null : cityContext,
         resolution: resolution,
-        maxRings: maxRings,
+        alternatives: alternatives,
         mode: mode,
-        prevScore: prevScore,
-        upThreshold: upThreshold,
-        downThreshold: downThreshold,
-        minJump: minJump,
-        phone: phone,
-        topicArn: topicArn,
+        alpha: alpha,
       ));
-
-      if (res is ExitSuccess) {
-        _destination = LatLng(lat: res.safeTarget.lat, lng: res.safeTarget.lng);
-        _destLabel = 'Safest nearby';
-        await _plan();
-      } else if (res is ExitNotFound) {
-        setState(() => planErr = res.detail);
-      }
+      setState(() => planRes = res);
+      if (!_usePlaceholder) await _drawPlanOnMap(res);
     } catch (e) {
-      setState(() => planErr = e.toString());
+      setState(() { planErr = e.toString(); _polylines = {}; _markers = {}; });
     } finally {
       setState(() => planBusy = false);
     }
@@ -198,21 +365,106 @@ class _SafetyNavigatorPageState extends State<SafetyNavigatorPage>
         topicArn: topicArn,
       ));
       setState(() => exitRes = res);
-      if (res is ExitSuccess && !_usePlaceholder) _drawExitOnMap(res);
+      if (res is ExitSuccess && !_usePlaceholder) await _drawExitOnMap(res);
       if (res is ExitNotFound) { _polylines = {}; _markers = {}; }
     } catch (e) {
-      setState(() {
-        exitErr = e.toString();
-        _polylines = {};
-        _markers = {};
-      });
+      setState(() { exitErr = e.toString(); _polylines = {}; _markers = {}; });
     } finally {
       setState(() => exitBusy = false);
     }
   }
 
-  // ====== map drawing ======
-  void _drawPlanOnMap(SafestResponse res) {
+  // ====== live tracking ======
+  LocationSettings _liveSettingsForMode() {
+    switch (mode) {
+      case 'walking': return const LocationSettings(accuracy: LocationAccuracy.bestForNavigation, distanceFilter: 4);
+      case 'cycling': return const LocationSettings(accuracy: LocationAccuracy.bestForNavigation, distanceFilter: 6);
+      case 'driving':
+      default:        return const LocationSettings(accuracy: LocationAccuracy.bestForNavigation, distanceFilter: 12);
+    }
+  }
+
+  Future<void> _ensureLiveStream() async {
+    if (_posSub != null) return;
+    if (!await _ensureLocPerm()) return;
+
+    _posSub = Geolocator.getPositionStream(locationSettings: _liveSettingsForMode())
+        .listen((pos) async {
+      if (!_inLebanon(pos.latitude, pos.longitude)) return;
+      final live = LatLng(lat: pos.latitude, lng: pos.longitude);
+
+      if (liveFollowPlan) { _origin = live; _originLabel = 'Live location'; }
+      if (liveFollowExit)  { _position = live; _posLabel = 'Live location'; }
+
+      // trail
+      final p = gmaps.LatLng(pos.latitude, pos.longitude);
+      _liveTrail.add(p);
+      if (_liveTrail.length > 1) {
+        _polylines.removeWhere((pl) => pl.polylineId.value == 'live');
+        _polylines.add(gmaps.Polyline(
+          polylineId: const gmaps.PolylineId('live'),
+          points: List.of(_liveTrail),
+          width: 4,
+          color: Colors.indigo,
+          geodesic: true,
+        ));
+      }
+
+      _panTo(live);
+      if (autoReplan && !_usePlaceholder) {
+        if (_tab.index == 0 && liveFollowPlan && !planBusy) await _plan();
+        if (_tab.index == 1 && liveFollowExit && !exitBusy) await _exitToSafety();
+      }
+      if (mounted) setState(() {});
+    });
+  }
+
+  void _stopLiveIfNoneActive() {
+    if (!liveFollowPlan && !liveFollowExit) {
+      _posSub?.cancel();
+      _posSub = null;
+      _polylines.removeWhere((pl) => pl.polylineId.value == 'live');
+    }
+  }
+
+  // ====== Directions fallback (street-following) ======
+  Future<List<gmaps.LatLng>> _directionsPolyline(LatLng a, LatLng b) async {
+    if (_GMAPS_KEY.isEmpty) return const [];
+    try {
+      final m = (mode == 'cycling') ? 'bicycling' : (mode == 'walking' ? 'walking' : 'driving');
+      final url = Uri.parse(
+        'https://maps.googleapis.com/maps/api/directions/json'
+        '?origin=${a.lat},${a.lng}&destination=${b.lat},${b.lng}&mode=$m&region=lb&key=$_GMAPS_KEY',
+      );
+      final res = await http.get(url).timeout(const Duration(seconds: 10));
+      if (res.statusCode != 200) return const [];
+      final json = jsonDecode(res.body);
+      final routes = (json['routes'] as List?) ?? const [];
+      if (routes.isEmpty) return const [];
+      final poly = routes[0]['overview_polyline']['points'] as String;
+      final pts = decodePolyline(poly);
+      return pts.map((p) => gmaps.LatLng(p.lat, p.lng)).toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  // ====== draw helpers ======
+  void _addChosenPolyline(List<gmaps.LatLng> gpts, String id) {
+    if (gpts.isEmpty) return;
+    _polylines.add(gmaps.Polyline(
+      polylineId: gmaps.PolylineId(id),
+      points: gpts,
+      width: 6,
+      color: Colors.blue,
+      geodesic: true,
+      startCap: gmaps.Cap.roundCap,
+      endCap: gmaps.Cap.roundCap,
+      jointType: gmaps.JointType.round,
+    ));
+  }
+
+  Future<void> _drawPlanOnMap(SafestResponse res) async {
     final chosen = res.chosen;
     _polylines = {};
     _markers = {
@@ -228,34 +480,43 @@ class _SafetyNavigatorPageState extends State<SafetyNavigatorPage>
       ),
     };
 
+    bool drew = false;
     if (chosen.encodedPolyline != null) {
-      final pts = decodePolyline(chosen.encodedPolyline!);
-      final gpts = pts.map((p) => gmaps.LatLng(p.lat, p.lng)).toList();
-      _polylines.add(gmaps.Polyline(
-        polylineId: const gmaps.PolylineId('chosen'),
-        points: gpts,
-        width: 6,
-      ));
-      _map?.animateCamera(
-        gmaps.CameraUpdate.newLatLngBounds(_bounds(gpts), 40),
-      );
+      final gpts = decodePolyline(chosen.encodedPolyline!)
+          .map((p) => gmaps.LatLng(p.lat, p.lng))
+          .where((p) => _inLebanon(p.latitude, p.longitude))
+          .toList();
+      if (gpts.length >= 2) {
+        _addChosenPolyline(gpts, 'chosen');
+        _map?.animateCamera(gmaps.CameraUpdate.newLatLngBounds(_bounds(gpts), 40));
+        drew = true;
+      }
     }
-
-    for (var i = 0; i < res.candidates.length; i++) {
-      final c = res.candidates[i];
-      if (c.encodedPolyline == null) continue;
-      final pts = decodePolyline(c.encodedPolyline!);
-      final gpts = pts.map((p) => gmaps.LatLng(p.lat, p.lng)).toList();
+    if (!drew) {
+      final gpts = await _directionsPolyline(_origin, _destination);
+      if (gpts.length >= 2) {
+        _addChosenPolyline(gpts, 'dir_fallback');
+        _map?.animateCamera(gmaps.CameraUpdate.newLatLngBounds(_bounds(gpts), 40));
+        drew = true;
+      }
+    }
+    if (!drew) {
+      final a = gmaps.LatLng(_origin.lat, _origin.lng);
+      final b = gmaps.LatLng(_destination.lat, _destination.lng);
       _polylines.add(gmaps.Polyline(
-        polylineId: gmaps.PolylineId('alt_$i'),
-        points: gpts,
+        polylineId: const gmaps.PolylineId('fallback'),
+        points: [a, b],
         width: 3,
+        color: Colors.black54,
+        geodesic: true,
+        patterns: <gmaps.PatternItem>[ gmaps.PatternItem.dash(20), gmaps.PatternItem.gap(10) ],
       ));
+      _map?.animateCamera(gmaps.CameraUpdate.newLatLngBounds(_bounds([a, b]), 60));
     }
     setState(() {});
   }
 
-  void _drawExitOnMap(ExitSuccess res) {
+  Future<void> _drawExitOnMap(ExitSuccess res) async {
     final chosen = res.route.chosen;
     _polylines = {};
     _markers = {
@@ -271,48 +532,84 @@ class _SafetyNavigatorPageState extends State<SafetyNavigatorPage>
       ),
     };
 
+    bool drew = false;
     if (chosen.encodedPolyline != null) {
-      final pts = decodePolyline(chosen.encodedPolyline!);
-      final gpts = pts.map((p) => gmaps.LatLng(p.lat, p.lng)).toList();
-      _polylines.add(gmaps.Polyline(
-        polylineId: const gmaps.PolylineId('exit'),
-        points: gpts,
-        width: 6,
-      ));
-      _map?.animateCamera(
-        gmaps.CameraUpdate.newLatLngBounds(_bounds(gpts), 40),
+      final gpts = decodePolyline(chosen.encodedPolyline!)
+          .map((p) => gmaps.LatLng(p.lat, p.lng))
+          .where((p) => _inLebanon(p.latitude, p.longitude))
+          .toList();
+      if (gpts.length >= 2) {
+        _addChosenPolyline(gpts, 'exit');
+        _map?.animateCamera(gmaps.CameraUpdate.newLatLngBounds(_bounds(gpts), 40));
+        drew = true;
+      }
+    }
+    if (!drew) {
+      final gpts = await _directionsPolyline(
+        _position, LatLng(lat: res.safeTarget.lat, lng: res.safeTarget.lng),
       );
+      if (gpts.length >= 2) {
+        _addChosenPolyline(gpts, 'exit_fallback');
+        _map?.animateCamera(gmaps.CameraUpdate.newLatLngBounds(_bounds(gpts), 40));
+        drew = true;
+      }
+    }
+    if (!drew) {
+      final a = gmaps.LatLng(_position.lat, _position.lng);
+      final b = gmaps.LatLng(res.safeTarget.lat, res.safeTarget.lng);
+      _polylines.add(gmaps.Polyline(
+        polylineId: const gmaps.PolylineId('fallback_exit'),
+        points: [a, b],
+        width: 3,
+        color: Colors.black54,
+        geodesic: true,
+        patterns: <gmaps.PatternItem>[ gmaps.PatternItem.dash(20), gmaps.PatternItem.gap(10) ],
+      ));
+      _map?.animateCamera(gmaps.CameraUpdate.newLatLngBounds(_bounds([a, b]), 60));
     }
     setState(() {});
   }
 
   gmaps.LatLngBounds _bounds(List<gmaps.LatLng> pts) {
-    double minLat = pts.first.latitude, maxLat = pts.first.latitude;
-    double minLng = pts.first.longitude, maxLng = pts.first.longitude;
-    for (final p in pts) {
+    final inside = pts.where((p) => _inLebanon(p.latitude, p.longitude)).toList();
+    if (inside.isEmpty) return _LB_BOUNDS;
+
+    double minLat = inside.first.latitude, maxLat = inside.first.latitude;
+    double minLng = inside.first.longitude, maxLng = inside.first.longitude;
+    for (final p in inside) {
       if (p.latitude < minLat) minLat = p.latitude;
       if (p.latitude > maxLat) maxLat = p.latitude;
       if (p.longitude < minLng) minLng = p.longitude;
       if (p.longitude > maxLng) maxLng = p.longitude;
     }
-    return gmaps.LatLngBounds(
-      southwest: gmaps.LatLng(minLat, minLng),
-      northeast: gmaps.LatLng(maxLat, maxLng),
+    final sw = gmaps.LatLng(
+      min(max(minLat, _LEB_MIN_LAT), _LEB_MAX_LAT),
+      min(max(minLng, _LEB_MIN_LNG), _LEB_MAX_LNG),
     );
+    final ne = gmaps.LatLng(
+      max(min(maxLat, _LEB_MAX_LAT), _LEB_MIN_LAT),
+      max(min(maxLng, _LEB_MAX_LNG), _LEB_MIN_LNG),
+    );
+    return gmaps.LatLngBounds(southwest: sw, northeast: ne);
   }
 
   // ====== map widget ======
   bool get _usePlaceholder => kIsWeb && !_WEB_MAPS_ENABLED;
+
+  void _onSafetyPressed() {
+    if (_tab.index == 0) {
+      _openSafeSuggestionsAround(_origin); // suggest safe places for planning
+    } else {
+      _openSafeSuggestionsAround(_position); // for exit tab too
+    }
+  }
 
   Widget _mapWidget() {
     if (_usePlaceholder) {
       return Container(
         height: 260,
         alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: Colors.black12,
-          borderRadius: BorderRadius.circular(8),
-        ),
+        decoration: BoxDecoration(color: Colors.black12, borderRadius: BorderRadius.circular(8)),
         child: const Padding(
           padding: EdgeInsets.all(12),
           child: Text(
@@ -323,35 +620,65 @@ class _SafetyNavigatorPageState extends State<SafetyNavigatorPage>
         ),
       );
     }
+
+    final mapChild = gmaps.GoogleMap(
+      mapType: gmaps.MapType.terrain,
+      initialCameraPosition: gmaps.CameraPosition(
+        target: gmaps.LatLng(_origin.lat, _origin.lng),
+        zoom: 12,
+      ),
+      myLocationButtonEnabled: false,
+      myLocationEnabled: false,
+      zoomControlsEnabled: true,
+      cameraTargetBounds: gmaps.CameraTargetBounds(_LB_BOUNDS),
+      minMaxZoomPreference: const gmaps.MinMaxZoomPreference(8, 19),
+      markers: _markers,
+      polylines: _polylines,
+      gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+        Factory<OneSequenceGestureRecognizer>(() => EagerGestureRecognizer()),
+      },
+      onMapCreated: (c) => _map = c,
+      onTap: (p) async {
+        if (_mapTapTarget == null) return;
+        if (!_inLebanon(p.latitude, p.longitude)) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Please pick inside Lebanon')),
+            );
+          }
+          return;
+        }
+        final clamped = _clampLB(LatLng(lat: p.latitude, lng: p.longitude));
+        final label = await _reverseLabel(clamped);
+
+        switch (_mapTapTarget!) {
+          case PickTarget.origin:      _origin = clamped; _originLabel = label;      break;
+          case PickTarget.destination: _destination = clamped; _destLabel = label;   break;
+          case PickTarget.position:    _position = clamped; _posLabel = label;       break;
+        }
+        setState(() => _mapTapTarget = null);
+      },
+    );
+
+    // Safety FAB near zoom "-"
     return SizedBox(
       height: 260,
-      child: gmaps.GoogleMap(
-        mapType: gmaps.MapType.terrain,
-        initialCameraPosition: gmaps.CameraPosition(
-          target: gmaps.LatLng(_origin.lat, _origin.lng),
-          zoom: 11,
-        ),
-        myLocationButtonEnabled: false,
-        myLocationEnabled: false,
-        markers: _markers,
-        polylines: _polylines,
-        onMapCreated: (c) => _map = c,
-        onTap: (p) {
-          if (_mapTapTarget == null) return;
-          final clamped = _clampLB(LatLng(lat: p.latitude, lng: p.longitude));
-          switch (_mapTapTarget!) {
-            case PickTarget.origin:
-              _origin = clamped; _originLabel = 'Pinned on map';
-              break;
-            case PickTarget.destination:
-              _destination = clamped; _destLabel = 'Pinned on map';
-              break;
-            case PickTarget.position:
-              _position = clamped; _posLabel = 'Pinned on map';
-              break;
-          }
-          setState(() => _mapTapTarget = null);
-        },
+      child: Stack(
+        children: [
+          Positioned.fill(child: mapChild),
+          Positioned(
+            right: 16,
+            bottom: 90, // sit next to the "-" zoom
+            child: Tooltip(
+              message: 'Safety',
+              child: FloatingActionButton.small(
+                heroTag: 'safetyBtn',
+                onPressed: _onSafetyPressed,
+                child: const Icon(Icons.safety_check),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -411,27 +738,47 @@ class _SafetyNavigatorPageState extends State<SafetyNavigatorPage>
                 icon: const Icon(Icons.my_location),
                 label: const Text('Use my location'),
                 onPressed: () async {
-                  if (!await _ensureLocPerm()) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Location permission denied')),
+                  try {
+                    if (!await _ensureLocPerm()) {
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Location permission denied')),
+                      );
+                      return;
+                    }
+                    final p = await Geolocator.getCurrentPosition(
+                      desiredAccuracy: LocationAccuracy.bestForNavigation,
                     );
-                    return;
+                    if (!_inLebanon(p.latitude, p.longitude)) {
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Your location appears outside Lebanon')),
+                      );
+                      return;
+                    }
+                    final here = LatLng(lat: p.latitude, lng: p.longitude);
+                    final label = await _reverseLabel(here);
+                    if (_planTarget == PickTarget.origin) { _origin = here; _originLabel = label; }
+                    else { _destination = here; _destLabel = label; }
+                    _panTo(here);
+                    setState(() {});
+                  } catch (e) {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Location error: $e')),
+                    );
                   }
-                  final p = await Geolocator.getCurrentPosition();
-                  final clamped = _clampLB(LatLng(lat: p.latitude, lng: p.longitude));
-                  if (_planTarget == PickTarget.origin) {
-                    _origin = clamped; _originLabel = 'My location';
-                  } else {
-                    _destination = clamped; _destLabel = 'My location';
-                  }
-                  _panTo(clamped);
-                  setState(() {});
                 },
               ),
               FilledButton.icon(
                 icon: Icon(_mapTapTarget == null ? Icons.add_location_alt_outlined : Icons.touch_app),
                 label: Text(_mapTapTarget == null ? 'Pick on map' : 'Tap map…'),
-                onPressed: _usePlaceholder ? null : () => setState(() => _mapTapTarget = _planTarget),
+                onPressed: _usePlaceholder ? null : () {
+                  setState(() => _mapTapTarget = _planTarget);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Tap the map to set the location')),
+                  );
+                },
               ),
               OutlinedButton.icon(
                 icon: const Icon(Icons.swap_horiz),
@@ -440,8 +787,14 @@ class _SafetyNavigatorPageState extends State<SafetyNavigatorPage>
                   final o = _origin; final ol = _originLabel;
                   _origin = _destination; _originLabel = _destLabel;
                   _destination = o; _destLabel = ol;
+                  _panTo(_origin);
                   setState(() {});
                 },
+              ),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.safety_check),
+                label: const Text('Suggest safe destination'),
+                onPressed: () => _openSafeSuggestionsAround(_origin),
               ),
             ],
           ),
@@ -451,10 +804,11 @@ class _SafetyNavigatorPageState extends State<SafetyNavigatorPage>
             spacing: 8,
             children: _quick.map<Widget>((c) => ActionChip(
               label: Text(c.name),
-              onPressed: () {
+              onPressed: () async {
                 final p = _clampLB(LatLng(lat: c.lat, lng: c.lng));
-                if (_planTarget == PickTarget.origin) { _origin = p; _originLabel = c.name; }
-                else { _destination = p; _destLabel = c.name; }
+                final label = await _reverseLabel(p);
+                if (_planTarget == PickTarget.origin) { _origin = p; _originLabel = label; }
+                else { _destination = p; _destLabel = label; }
                 _panTo(p);
                 setState(() {});
               },
@@ -470,7 +824,7 @@ class _SafetyNavigatorPageState extends State<SafetyNavigatorPage>
               trailing: IconButton(
                 tooltip: 'Use safest nearby as destination',
                 icon: const Icon(Icons.safety_check),
-                onPressed: planBusy ? null : _planToSafestNearby,
+                onPressed: () => _openSafeSuggestionsAround(_origin),
               ),
             ),
           ),
@@ -482,15 +836,20 @@ class _SafetyNavigatorPageState extends State<SafetyNavigatorPage>
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   DropdownButtonFormField<String>(
-                    initialValue: mode,
+                    value: mode,
                     decoration: const InputDecoration(labelText: 'Mode'),
                     items: const [
                       DropdownMenuItem(value: 'walking', child: Text('Walking')),
                       DropdownMenuItem(value: 'driving', child: Text('Driving')),
-                      DropdownMenuItem(value: 'bicycling', child: Text('Bicycling')),
-                      DropdownMenuItem(value: 'transit', child: Text('Transit')),
+                      DropdownMenuItem(value: 'cycling', child: Text('Cycling')),
                     ],
-                    onChanged: (v) => setState(() => mode = v ?? 'walking'),
+                    onChanged: (v) async {
+                      setState(() => mode = v ?? 'walking');
+                      if (liveFollowPlan || liveFollowExit) {
+                        _posSub?.cancel(); _posSub = null;
+                        await _ensureLiveStream();
+                      }
+                    },
                   ),
                   SwitchListTile(
                     value: alternatives,
@@ -500,7 +859,15 @@ class _SafetyNavigatorPageState extends State<SafetyNavigatorPage>
                   Text('Safety ↔ Speed (alpha: ${alpha.toStringAsFixed(2)})'),
                   Slider(min: 0, max: 1, divisions: 100, value: alpha, onChanged: (v) => setState(() => alpha = v)),
 
-                  // advanced
+                  SwitchListTile(
+                    value: liveFollowPlan,
+                    onChanged: (v) async {
+                      setState(() => liveFollowPlan = v);
+                      if (v) { await _ensureLiveStream(); } else { _stopLiveIfNoneActive(); }
+                    },
+                    title: const Text('Live track origin'),
+                  ),
+
                   const SizedBox(height: 6),
                   ExpansionTile(
                     title: const Text('Advanced (optional)'),
@@ -560,23 +927,45 @@ class _SafetyNavigatorPageState extends State<SafetyNavigatorPage>
                 icon: const Icon(Icons.my_location),
                 label: const Text('Use my location'),
                 onPressed: () async {
-                  if (!await _ensureLocPerm()) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Location permission denied')),
+                  try {
+                    if (!await _ensureLocPerm()) {
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Location permission denied')),
+                      );
+                      return;
+                    }
+                    final p = await Geolocator.getCurrentPosition(
+                      desiredAccuracy: LocationAccuracy.bestForNavigation,
                     );
-                    return;
+                    if (!_inLebanon(p.latitude, p.longitude)) {
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Your location appears outside Lebanon')),
+                      );
+                      return;
+                    }
+                    _position = LatLng(lat: p.latitude, lng: p.longitude);
+                    _posLabel = await _reverseLabel(_position);
+                    _panTo(_position);
+                    setState(() {});
+                  } catch (e) {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Location error: $e')),
+                    );
                   }
-                  final p = await Geolocator.getCurrentPosition();
-                  _position = _clampLB(LatLng(lat: p.latitude, lng: p.longitude));
-                  _posLabel = 'My location';
-                  _panTo(_position);
-                  setState(() {});
                 },
               ),
               FilledButton.icon(
                 icon: Icon(_mapTapTarget == PickTarget.position ? Icons.touch_app : Icons.add_location_alt_outlined),
                 label: Text(_mapTapTarget == PickTarget.position ? 'Tap map…' : 'Pick on map'),
-                onPressed: _usePlaceholder ? null : () => setState(() => _mapTapTarget = PickTarget.position),
+                onPressed: _usePlaceholder ? null : () {
+                  setState(() => _mapTapTarget = PickTarget.position);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Tap the map to set the location')),
+                  );
+                },
               ),
             ],
           ),
@@ -585,9 +974,10 @@ class _SafetyNavigatorPageState extends State<SafetyNavigatorPage>
             spacing: 8,
             children: _quick.map<Widget>((c) => ActionChip(
               label: Text(c.name),
-              onPressed: () {
+              onPressed: () async {
                 final p = _clampLB(LatLng(lat: c.lat, lng: c.lng));
-                _position = p; _posLabel = c.name; _panTo(p); setState(() {});
+                _position = p; _posLabel = await _reverseLabel(p);
+                _panTo(p); setState(() {});
               },
             )).toList(),
           ),
@@ -596,7 +986,7 @@ class _SafetyNavigatorPageState extends State<SafetyNavigatorPage>
             child: ListTile(
               leading: const Icon(Icons.place),
               title: Text('Position: $_posLabel'),
-              subtitle: const Text('I want the nearest safe place and route to it'),
+              subtitle: const Text('Find a safe place nearby and route to it'),
             ),
           ),
           Card(
@@ -606,18 +996,31 @@ class _SafetyNavigatorPageState extends State<SafetyNavigatorPage>
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   DropdownButtonFormField<String>(
-                    initialValue: mode,
+                    value: mode,
                     decoration: const InputDecoration(labelText: 'Mode'),
                     items: const [
                       DropdownMenuItem(value: 'walking', child: Text('Walking')),
                       DropdownMenuItem(value: 'driving', child: Text('Driving')),
-                      DropdownMenuItem(value: 'bicycling', child: Text('Bicycling')),
-                      DropdownMenuItem(value: 'transit', child: Text('Transit')),
+                      DropdownMenuItem(value: 'cycling', child: Text('Cycling')),
                     ],
-                    onChanged: (v) => setState(() => mode = v ?? 'walking'),
+                    onChanged: (v) async {
+                      setState(() => mode = v ?? 'walking');
+                      if (liveFollowPlan || liveFollowExit) {
+                        _posSub?.cancel(); _posSub = null;
+                        await _ensureLiveStream();
+                      }
+                    },
                   ),
 
-                  // advanced options folded
+                  SwitchListTile(
+                    value: liveFollowExit,
+                    onChanged: (v) async {
+                      setState(() => liveFollowExit = v);
+                      if (v) { await _ensureLiveStream(); } else { _stopLiveIfNoneActive(); }
+                    },
+                    title: const Text('Live track position'),
+                  ),
+
                   const SizedBox(height: 6),
                   ExpansionTile(
                     title: const Text('Advanced (optional)'),
@@ -642,9 +1045,9 @@ class _SafetyNavigatorPageState extends State<SafetyNavigatorPage>
 
                   const SizedBox(height: 8),
                   FilledButton.icon(
-                    onPressed: exitBusy ? null : _exitToSafety,
+                    onPressed: () => _openSafeSuggestionsAround(_position),
                     icon: const Icon(Icons.safety_check),
-                    label: Text(exitBusy ? 'Finding safety…' : 'Find safest place & route'),
+                    label: const Text('Find safest place & route'),
                   ),
                 ],
               ),
@@ -747,61 +1150,202 @@ class _SafetyNavigatorPageState extends State<SafetyNavigatorPage>
         ),
       );
 
-  // ====== search bottom sheet ======
+  // ====== search sheet (Places + OSM fallback) ======
   Future<void> _openSearchSheet(PickTarget target) async {
     final controller = TextEditingController();
+    List<_PlacePred> preds = const [];
+
     final res = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
-      builder: (_) => Padding(
-        padding: EdgeInsets.only(
-          left: 16, right: 16, top: 16,
-          bottom: 16 + MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text('Search city or place in Lebanon', style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            TextField(
-              controller: controller,
-              decoration: const InputDecoration(
-                hintText: 'e.g. Hamra, Tripoli, Airport…',
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(),
+      builder: (_) => StatefulBuilder(
+        builder: (context, setModal) => Padding(
+          padding: EdgeInsets.only(
+            left: 16, right: 16, top: 16,
+            bottom: 16 + MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text('Search a place (Lebanon only)', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              TextField(
+                controller: controller,
+                decoration: const InputDecoration(
+                  hintText: 'e.g. Hamra Bliss, AUBMC, Tripoli…',
+                  prefixIcon: Icon(Icons.search),
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (s) async {
+                  if (_GMAPS_KEY.isEmpty) { setModal(() => preds = const []); return; }
+                  final r = await _placesAutocomplete(s.trim());
+                  setModal(() => preds = r);
+                },
+                onSubmitted: (_) => Navigator.of(context).pop(controller.text.trim()),
               ),
-              onSubmitted: (_) => Navigator.of(context).pop(controller.text.trim()),
-            ),
-            const SizedBox(height: 12),
-            FilledButton.icon(
-              icon: const Icon(Icons.search),
-              label: const Text('Search'),
-              onPressed: () => Navigator.of(context).pop(controller.text.trim()),
-            ),
-          ],
+              const SizedBox(height: 8),
+              ...preds.take(8).map((p) => ListTile(
+                dense: true,
+                leading: const Icon(Icons.place_outlined),
+                title: Text(p.desc, maxLines: 2, overflow: TextOverflow.ellipsis),
+                onTap: () => Navigator.of(context).pop('place:${p.placeId}|${p.desc}'),
+              )),
+              if (preds.isEmpty)
+                FilledButton.icon(
+                  icon: const Icon(Icons.search),
+                  label: const Text('Search'),
+                  onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+                ),
+            ],
+          ),
         ),
       ),
     );
 
     final q = (res ?? '').trim();
     if (q.isEmpty) return;
-    final p = await _geocode(q);
+
+    LatLng? p;
+    String label;
+    if (q.startsWith('place:')) {
+      final parts = q.substring(6).split('|');
+      final placeId = parts.first;
+      label = parts.length > 1 ? parts[1] : 'Pinned';
+      p = await _placeDetails(placeId);
+    } else {
+      p = await _geocode(q);
+      label = q;
+    }
     if (p == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No result for "$q"')),
-      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('No result in Lebanon for "$q"')));
       return;
     }
+
+    label = await _reverseLabel(p);
     switch (target) {
-      case PickTarget.origin:
-        _origin = p; _originLabel = q; break;
-      case PickTarget.destination:
-        _destination = p; _destLabel = q; break;
-      case PickTarget.position:
-        _position = p; _posLabel = q; break;
+      case PickTarget.origin:      _origin = p; _originLabel = label; break;
+      case PickTarget.destination: _destination = p; _destLabel = label; break;
+      case PickTarget.position:    _position = p; _posLabel = label; break;
     }
     _panTo(p);
+    if (mounted) setState(() {});
+  }
+
+  // ====== Safe suggestions (heuristic): POIs around a base point ======
+  double _haversine(double lat1, double lon1, double lat2, double lon2) {
+    const R = 6371000.0;
+    final dLat = (lat2 - lat1) * (3.141592653589793 / 180);
+    final dLon = (lon2 - lon1) * (3.141592653589793 / 180);
+    final a = sin(dLat/2) * sin(dLat/2) +
+              cos(lat1*(3.141592653589793/180)) *
+              cos(lat2*(3.141592653589793/180)) *
+              sin(dLon/2) * sin(dLon/2);
+    final c = 2 * atan2(sqrt(a), sqrt(1-a));
+    return R * c;
+  }
+
+  Future<List<_Poi>> _safePOIs(LatLng base) async {
+    // Prefer Google Nearby Search when key is present
+    if (_GMAPS_KEY.isNotEmpty) {
+      final types = <String>[
+        'police','hospital','university','shopping_mall','embassy','fire_station'
+      ];
+      final Map<String, _Poi> seen = {};
+      for (final t in types) {
+        try {
+          final uri = Uri.parse(
+            'https://maps.googleapis.com/maps/api/place/nearbysearch/json'
+            '?location=${base.lat},${base.lng}&radius=5000&type=$t&key=$_GMAPS_KEY',
+          );
+          final res = await http.get(uri).timeout(const Duration(seconds: 10));
+          if (res.statusCode != 200) continue;
+          final json = jsonDecode(res.body);
+          final results = (json['results'] as List?) ?? const [];
+          for (final r in results) {
+            final pid = r['place_id'] as String?;
+            final name = (r['name'] as String?) ?? t;
+            final loc = r['geometry']?['location'];
+            if (loc == null) continue;
+            final lat = (loc['lat'] as num).toDouble();
+            final lng = (loc['lng'] as num).toDouble();
+            if (!_inLebanon(lat, lng)) continue;
+            final d = _haversine(base.lat, base.lng, lat, lng);
+            final addr = (r['vicinity'] as String?) ?? '';
+            final key = pid ?? '$lat,$lng';
+            if (!seen.containsKey(key) || d < seen[key]!.distanceM) {
+              seen[key] = _Poi(
+                name: name,
+                placeId: pid,
+                loc: LatLng(lat: lat, lng: lng),
+                secondary: addr.isEmpty ? t : addr,
+                distanceM: d,
+              );
+            }
+          }
+        } catch (_) { /* keep trying other types */ }
+      }
+      final list = seen.values.toList()
+        ..sort((a, b) => a.distanceM.compareTo(b.distanceM));
+      return list.take(12).toList();
+    }
+
+    // No Google key → modest OSM fallback: just return the base as one option
+    return [
+      _Poi(
+        name: 'Nearest safe (suggested)',
+        placeId: null,
+        loc: base,
+        secondary: 'Your current area',
+        distanceM: 0,
+      )
+    ];
+  }
+
+  Future<void> _openSafeSuggestionsAround(LatLng base) async {
+    final ctx = context;
+    final items = await _safePOIs(base);
+    if (items.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('No nearby suggestions')));
+      return;
+    }
+
+    final chosen = await showModalBottomSheet<_Poi>(
+      context: ctx,
+      isScrollControlled: true,
+      builder: (_) => DraggableScrollableSheet(
+        expand: false,
+        maxChildSize: 0.9,
+        builder: (_, controller) => Column(
+          children: [
+            const SizedBox(height: 8),
+            const Text('Suggested safe places', style: TextStyle(fontWeight: FontWeight.bold)),
+            Expanded(
+              child: ListView.builder(
+                controller: controller,
+                itemCount: items.length,
+                itemBuilder: (_, i) {
+                  final p = items[i];
+                  return ListTile(
+                    leading: const Icon(Icons.shield_outlined),
+                    title: Text(p.name),
+                    subtitle: Text('${p.secondary} • ${(p.distanceM/1000).toStringAsFixed(2)} km'),
+                    onTap: () => Navigator.of(ctx).pop(p),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (chosen == null) return;
+    _destination = chosen.loc;
+    _destLabel = chosen.name;
     setState(() {});
+    await _plan();
   }
 }
