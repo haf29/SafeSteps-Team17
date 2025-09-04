@@ -268,7 +268,21 @@ def add_incident(zone_id, incident_type, timestamp, city, reported_by):
         print("Error adding incident:", e)
         return False
 
+def add_incident_and_update(zone_id: str, incident_type: str, timestamp: str, city: str, reported_by: str):
+    ok = dynamo.add_incident(zone_id, incident_type, timestamp, city, reported_by)
+    if not ok:
+        return False
 
+    # Recalculate severity for this hex from *all* its incidents
+    incs = dynamo.get_incidents_by_hex(zone_id)
+    score = calculate_score(incs)
+
+    dynamo.update_zone_severity(
+        zone_id,
+        severity=score,
+        updated_at_iso=datetime.now(timezone.utc).isoformat()
+    )
+    return True
 
 def update_zone_severity(zone_id: str, severity: float, updated_at_iso: str) -> None:
     """Persist the latest severity score and updated_at timestamp."""
