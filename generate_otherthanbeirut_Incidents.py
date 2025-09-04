@@ -25,13 +25,13 @@ INCIDENT_TYPES = [
 adm2_path = "LBN_ADM2.geojson"
 gdf = gpd.read_file(adm2_path)
 
-# Filter Beirut district only
-beirut_gdf = gdf[gdf["shapeName"].str.contains("Beirut", case=False, na=False)]
+# Exclude Beirut district
+non_beirut_gdf = gdf[~gdf["shapeName"].str.contains("Beirut", case=False, na=False)]
 
 resolution = 9
 records = []
 
-for _, row in beirut_gdf.iterrows():
+for _, row in non_beirut_gdf.iterrows():
     city_name = row["shapeName"]
     geom = row.geometry
 
@@ -65,7 +65,7 @@ for _, row in beirut_gdf.iterrows():
             records.append(incident)
 
 # Save as JSON
-with open("beirut_incidents.json", "w", encoding="utf-8") as f:
+with open("other_cities_incidents.json", "w", encoding="utf-8") as f:
     json.dump(records, f, ensure_ascii=False, indent=2)
 
-print(f"Generated {len(records)} Beirut incidents → beirut_incidents.json")
+print(f"Generated {len(records)} incidents for all other districts → other_cities_incidents.json")

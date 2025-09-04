@@ -59,7 +59,7 @@ def iso_or_passthrough(ts: str) -> str:
 
 def main():
     parser = argparse.ArgumentParser(description="Upload Beirut incidents JSON to DynamoDB.")
-    parser.add_argument("--file", "-f", default="beirut_incidents.json",
+    parser.add_argument("--file", "-f", default="other_cities_incidents.json",
                         help="Path to JSON file (list of incident objects).")
     parser.add_argument("--dry-run", action="store_true",
                         help="Validate and print, but do not write to DynamoDB.")
