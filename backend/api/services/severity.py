@@ -23,7 +23,7 @@ SEVERITY_WEIGHTS: dict[str, float] = {
     "other": 1.0,
 }
 DEFAULT_WEIGHT = 1.0
-SCORE_CAP = 5.0
+SCORE_CAP = 3.0
 try:
     import h3  # h3>=4
     _HAS_H3 = True
@@ -107,9 +107,9 @@ def categorize_score(score: float) -> str:
     Convert a numeric score into a color category.
     (Backwards-compatible thresholds.)
     """
-    if score < 2:
+    if score < 1:
         return "#00FF00"
-    elif score < 4:
+    elif score < 2:
         return "#FFFF00"
     return "#FF000"
 

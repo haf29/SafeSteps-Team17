@@ -1,0 +1,2956 @@
+[
+  {
+    "zone_id": "892da475d6fffff",
+    "incident_type": "shooting",
+    "timestamp": "2025-08-01T15:28:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96172427915"
+  },
+  {
+    "zone_id": "892da475d6fffff",
+    "incident_type": "other",
+    "timestamp": "2025-04-09T18:28:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96174372250"
+  },
+  {
+    "zone_id": "892da475d6fffff",
+    "incident_type": "other",
+    "timestamp": "2025-02-22T18:03:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96175434992"
+  },
+  {
+    "zone_id": "892da475d6fffff",
+    "incident_type": "drone_activity",
+    "timestamp": "2025-02-21T00:21:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_671@example.com"
+  },
+  {
+    "zone_id": "892da474bcbffff",
+    "incident_type": "robbery",
+    "timestamp": "2025-04-06T09:40:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96171464612"
+  },
+  {
+    "zone_id": "892da474bcbffff",
+    "incident_type": "explosion",
+    "timestamp": "2025-03-23T04:27:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96173573571"
+  },
+  {
+    "zone_id": "892da474bcbffff",
+    "incident_type": "airstrike",
+    "timestamp": "2025-03-19T05:28:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96174716152"
+  },
+  {
+    "zone_id": "892da474a5bffff",
+    "incident_type": "harassment",
+    "timestamp": "2025-03-27T01:34:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96179915485"
+  },
+  {
+    "zone_id": "892da4759cbffff",
+    "incident_type": "harassment",
+    "timestamp": "2024-09-26T21:19:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_859@example.com"
+  },
+  {
+    "zone_id": "892da4759cbffff",
+    "incident_type": "murder",
+    "timestamp": "2025-06-13T03:50:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96177430444"
+  },
+  {
+    "zone_id": "892da4759cbffff",
+    "incident_type": "shooting",
+    "timestamp": "2024-12-06T07:08:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96171375747"
+  },
+  {
+    "zone_id": "892da4759cbffff",
+    "incident_type": "other",
+    "timestamp": "2025-08-27T15:37:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_808@example.com"
+  },
+  {
+    "zone_id": "892da474b03ffff",
+    "incident_type": "murder",
+    "timestamp": "2025-05-04T23:15:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96176739483"
+  },
+  {
+    "zone_id": "892da475913ffff",
+    "incident_type": "robbery",
+    "timestamp": "2025-07-08T04:20:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96175537164"
+  },
+  {
+    "zone_id": "892da475913ffff",
+    "incident_type": "murder",
+    "timestamp": "2025-05-23T13:06:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96179101651"
+  },
+  {
+    "zone_id": "892da474b8fffff",
+    "incident_type": "harassment",
+    "timestamp": "2025-03-11T02:29:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96173612483"
+  },
+  {
+    "zone_id": "892da474b8fffff",
+    "incident_type": "vandalism",
+    "timestamp": "2024-12-20T13:04:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_838@example.com"
+  },
+  {
+    "zone_id": "892da474b8fffff",
+    "incident_type": "shooting",
+    "timestamp": "2025-03-16T15:18:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96177238089"
+  },
+  {
+    "zone_id": "892da474b8fffff",
+    "incident_type": "robbery",
+    "timestamp": "2025-04-24T10:06:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_554@example.com"
+  },
+  {
+    "zone_id": "892da474a6fffff",
+    "incident_type": "vandalism",
+    "timestamp": "2024-10-06T02:34:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_550@example.com"
+  },
+  {
+    "zone_id": "892da474a6fffff",
+    "incident_type": "drone_activity",
+    "timestamp": "2025-07-29T20:45:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96178295459"
+  },
+  {
+    "zone_id": "892da474bc7ffff",
+    "incident_type": "murder",
+    "timestamp": "2025-06-12T14:51:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96174359438"
+  },
+  {
+    "zone_id": "892da474a07ffff",
+    "incident_type": "drone_activity",
+    "timestamp": "2025-01-13T22:26:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96176013437"
+  },
+  {
+    "zone_id": "892da474a07ffff",
+    "incident_type": "theft",
+    "timestamp": "2025-01-19T18:56:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_594@example.com"
+  },
+  {
+    "zone_id": "892da474a07ffff",
+    "incident_type": "drone_activity",
+    "timestamp": "2024-10-21T03:08:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_178@example.com"
+  },
+  {
+    "zone_id": "892da474a07ffff",
+    "incident_type": "airstrike",
+    "timestamp": "2024-10-28T11:46:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96172151986"
+  },
+  {
+    "zone_id": "892da475823ffff",
+    "incident_type": "drone_activity",
+    "timestamp": "2025-06-27T02:58:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_151@example.com"
+  },
+  {
+    "zone_id": "892da475823ffff",
+    "incident_type": "airstrike",
+    "timestamp": "2025-07-22T20:58:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_535@example.com"
+  },
+  {
+    "zone_id": "892da475823ffff",
+    "incident_type": "other",
+    "timestamp": "2024-09-27T02:14:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_787@example.com"
+  },
+  {
+    "zone_id": "892da474a7bffff",
+    "incident_type": "robbery",
+    "timestamp": "2025-03-12T12:45:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_326@example.com"
+  },
+  {
+    "zone_id": "892da474a7bffff",
+    "incident_type": "assault",
+    "timestamp": "2025-07-26T23:17:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_181@example.com"
+  },
+  {
+    "zone_id": "892da4759bbffff",
+    "incident_type": "explosion",
+    "timestamp": "2025-01-07T08:03:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_426@example.com"
+  },
+  {
+    "zone_id": "892da4759bbffff",
+    "incident_type": "other",
+    "timestamp": "2025-04-08T20:57:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_677@example.com"
+  },
+  {
+    "zone_id": "892da4759bbffff",
+    "incident_type": "assault",
+    "timestamp": "2025-06-06T22:07:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_982@example.com"
+  },
+  {
+    "zone_id": "892da466497ffff",
+    "incident_type": "vandalism",
+    "timestamp": "2025-08-02T08:58:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96178909765"
+  },
+  {
+    "zone_id": "892da466497ffff",
+    "incident_type": "kidnapping",
+    "timestamp": "2024-12-16T20:08:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_266@example.com"
+  },
+  {
+    "zone_id": "892da466497ffff",
+    "incident_type": "shooting",
+    "timestamp": "2025-01-30T06:20:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96172505961"
+  },
+  {
+    "zone_id": "892da474b0bffff",
+    "incident_type": "kidnapping",
+    "timestamp": "2025-04-07T15:38:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96174730939"
+  },
+  {
+    "zone_id": "892da474a4bffff",
+    "incident_type": "vandalism",
+    "timestamp": "2025-03-29T21:34:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_115@example.com"
+  },
+  {
+    "zone_id": "892da474b1bffff",
+    "incident_type": "harassment",
+    "timestamp": "2025-06-11T13:56:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_255@example.com"
+  },
+  {
+    "zone_id": "892da474b1bffff",
+    "incident_type": "kidnapping",
+    "timestamp": "2025-04-24T10:12:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96177272432"
+  },
+  {
+    "zone_id": "892da474b83ffff",
+    "incident_type": "kidnapping",
+    "timestamp": "2025-08-28T05:18:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96178782163"
+  },
+  {
+    "zone_id": "892da474b83ffff",
+    "incident_type": "kidnapping",
+    "timestamp": "2025-06-03T07:32:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_598@example.com"
+  },
+  {
+    "zone_id": "892da474b83ffff",
+    "incident_type": "vandalism",
+    "timestamp": "2025-07-15T16:26:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96177531557"
+  },
+  {
+    "zone_id": "892da474bcfffff",
+    "incident_type": "explosion",
+    "timestamp": "2025-05-24T14:26:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96171258526"
+  },
+  {
+    "zone_id": "892da474a4fffff",
+    "incident_type": "explosion",
+    "timestamp": "2024-11-16T18:46:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96174419606"
+  },
+  {
+    "zone_id": "892da474a4fffff",
+    "incident_type": "shooting",
+    "timestamp": "2024-11-30T00:01:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96176940693"
+  },
+  {
+    "zone_id": "892da474a4fffff",
+    "incident_type": "explosion",
+    "timestamp": "2025-03-08T02:51:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96173050216"
+  },
+  {
+    "zone_id": "892da475973ffff",
+    "incident_type": "murder",
+    "timestamp": "2025-06-11T04:33:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96173429777"
+  },
+  {
+    "zone_id": "892da475973ffff",
+    "incident_type": "shooting",
+    "timestamp": "2025-01-26T18:11:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_378@example.com"
+  },
+  {
+    "zone_id": "892da475973ffff",
+    "incident_type": "assault",
+    "timestamp": "2025-01-29T12:11:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_461@example.com"
+  },
+  {
+    "zone_id": "892da474a27ffff",
+    "incident_type": "harassment",
+    "timestamp": "2025-02-11T13:36:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96176879540"
+  },
+  {
+    "zone_id": "892da474a27ffff",
+    "incident_type": "assault",
+    "timestamp": "2025-06-21T01:31:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96178045833"
+  },
+  {
+    "zone_id": "892da474a27ffff",
+    "incident_type": "murder",
+    "timestamp": "2025-04-06T03:33:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_999@example.com"
+  },
+  {
+    "zone_id": "892da474a27ffff",
+    "incident_type": "harassment",
+    "timestamp": "2024-11-23T13:18:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96177783524"
+  },
+  {
+    "zone_id": "892da474b3bffff",
+    "incident_type": "vandalism",
+    "timestamp": "2024-12-11T02:20:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96179804674"
+  },
+  {
+    "zone_id": "892da474b3bffff",
+    "incident_type": "explosion",
+    "timestamp": "2025-07-16T12:13:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96174799677"
+  },
+  {
+    "zone_id": "892da47487bffff",
+    "incident_type": "assault",
+    "timestamp": "2025-05-14T19:11:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96178353668"
+  },
+  {
+    "zone_id": "892da474b13ffff",
+    "incident_type": "explosion",
+    "timestamp": "2024-10-30T08:21:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_628@example.com"
+  },
+  {
+    "zone_id": "892da475d27ffff",
+    "incident_type": "other",
+    "timestamp": "2025-07-31T01:12:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_901@example.com"
+  },
+  {
+    "zone_id": "892da475d27ffff",
+    "incident_type": "kidnapping",
+    "timestamp": "2024-11-07T12:23:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96179134383"
+  },
+  {
+    "zone_id": "892da475d27ffff",
+    "incident_type": "drone_activity",
+    "timestamp": "2025-03-22T06:25:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_139@example.com"
+  },
+  {
+    "zone_id": "892da47598fffff",
+    "incident_type": "other",
+    "timestamp": "2024-10-02T07:38:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96177202872"
+  },
+  {
+    "zone_id": "892da47598fffff",
+    "incident_type": "robbery",
+    "timestamp": "2025-05-19T00:02:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96178007121"
+  },
+  {
+    "zone_id": "892da474b9bffff",
+    "incident_type": "airstrike",
+    "timestamp": "2025-04-05T16:38:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96176596129"
+  },
+  {
+    "zone_id": "892da474b9bffff",
+    "incident_type": "assault",
+    "timestamp": "2024-11-04T00:41:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_344@example.com"
+  },
+  {
+    "zone_id": "892da474b9bffff",
+    "incident_type": "shooting",
+    "timestamp": "2025-05-12T16:45:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96179768610"
+  },
+  {
+    "zone_id": "892da474ab7ffff",
+    "incident_type": "murder",
+    "timestamp": "2024-09-20T18:00:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96179028033"
+  },
+  {
+    "zone_id": "892da474ab7ffff",
+    "incident_type": "explosion",
+    "timestamp": "2025-03-15T18:36:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_361@example.com"
+  },
+  {
+    "zone_id": "892da474ab7ffff",
+    "incident_type": "drone_activity",
+    "timestamp": "2025-03-02T13:09:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_457@example.com"
+  },
+  {
+    "zone_id": "892da47591bffff",
+    "incident_type": "robbery",
+    "timestamp": "2024-10-14T01:30:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96179347155"
+  },
+  {
+    "zone_id": "892da47591bffff",
+    "incident_type": "other",
+    "timestamp": "2025-02-16T02:47:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_232@example.com"
+  },
+  {
+    "zone_id": "892da47591bffff",
+    "incident_type": "explosion",
+    "timestamp": "2025-02-22T06:24:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96171302581"
+  },
+  {
+    "zone_id": "892da47591bffff",
+    "incident_type": "assault",
+    "timestamp": "2024-12-23T19:29:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_802@example.com"
+  },
+  {
+    "zone_id": "892da475987ffff",
+    "incident_type": "kidnapping",
+    "timestamp": "2024-12-03T07:23:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_556@example.com"
+  },
+  {
+    "zone_id": "892da475987ffff",
+    "incident_type": "assault",
+    "timestamp": "2025-03-05T18:00:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_960@example.com"
+  },
+  {
+    "zone_id": "892da475987ffff",
+    "incident_type": "vandalism",
+    "timestamp": "2025-07-13T17:38:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_939@example.com"
+  },
+  {
+    "zone_id": "892da474e6fffff",
+    "incident_type": "shooting",
+    "timestamp": "2025-06-17T20:14:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96171659964"
+  },
+  {
+    "zone_id": "892da474e6fffff",
+    "incident_type": "drone_activity",
+    "timestamp": "2025-04-20T15:08:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96177227993"
+  },
+  {
+    "zone_id": "892da474e6fffff",
+    "incident_type": "kidnapping",
+    "timestamp": "2024-11-16T14:01:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96171455056"
+  },
+  {
+    "zone_id": "892da474e6fffff",
+    "incident_type": "theft",
+    "timestamp": "2025-08-25T17:08:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96173202515"
+  },
+  {
+    "zone_id": "892da474b43ffff",
+    "incident_type": "airstrike",
+    "timestamp": "2025-05-29T22:39:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_225@example.com"
+  },
+  {
+    "zone_id": "892da474b43ffff",
+    "incident_type": "theft",
+    "timestamp": "2025-08-05T14:50:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96172401793"
+  },
+  {
+    "zone_id": "892da474b43ffff",
+    "incident_type": "assault",
+    "timestamp": "2025-04-18T09:35:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96173999379"
+  },
+  {
+    "zone_id": "892da474b43ffff",
+    "incident_type": "vandalism",
+    "timestamp": "2025-03-05T22:48:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_392@example.com"
+  },
+  {
+    "zone_id": "892da474a47ffff",
+    "incident_type": "airstrike",
+    "timestamp": "2024-12-31T03:11:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_814@example.com"
+  },
+  {
+    "zone_id": "892da474a47ffff",
+    "incident_type": "shooting",
+    "timestamp": "2024-09-08T12:11:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_369@example.com"
+  },
+  {
+    "zone_id": "892da47597bffff",
+    "incident_type": "vandalism",
+    "timestamp": "2025-03-27T11:31:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96178548353"
+  },
+  {
+    "zone_id": "892da47597bffff",
+    "incident_type": "vandalism",
+    "timestamp": "2024-12-23T17:02:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96178630246"
+  },
+  {
+    "zone_id": "892da47597bffff",
+    "incident_type": "other",
+    "timestamp": "2025-05-27T14:46:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_781@example.com"
+  },
+  {
+    "zone_id": "892da474b4bffff",
+    "incident_type": "drone_activity",
+    "timestamp": "2025-01-12T10:28:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_325@example.com"
+  },
+  {
+    "zone_id": "892da474b4bffff",
+    "incident_type": "assault",
+    "timestamp": "2025-04-11T18:34:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96179532992"
+  },
+  {
+    "zone_id": "892da474b4bffff",
+    "incident_type": "explosion",
+    "timestamp": "2024-10-18T19:04:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96173854874"
+  },
+  {
+    "zone_id": "892da474b4bffff",
+    "incident_type": "assault",
+    "timestamp": "2025-08-31T16:36:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96177680416"
+  },
+  {
+    "zone_id": "892da474acbffff",
+    "incident_type": "drone_activity",
+    "timestamp": "2025-04-25T23:35:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_624@example.com"
+  },
+  {
+    "zone_id": "892da474acbffff",
+    "incident_type": "theft",
+    "timestamp": "2025-04-11T00:42:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96174416827"
+  },
+  {
+    "zone_id": "892da474acbffff",
+    "incident_type": "kidnapping",
+    "timestamp": "2024-09-08T03:15:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96175178043"
+  },
+  {
+    "zone_id": "892da475d67ffff",
+    "incident_type": "drone_activity",
+    "timestamp": "2025-04-13T00:41:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_671@example.com"
+  },
+  {
+    "zone_id": "892da475d67ffff",
+    "incident_type": "robbery",
+    "timestamp": "2025-05-01T20:10:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_473@example.com"
+  },
+  {
+    "zone_id": "892da475d67ffff",
+    "incident_type": "murder",
+    "timestamp": "2025-03-23T10:40:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_161@example.com"
+  },
+  {
+    "zone_id": "892da474a73ffff",
+    "incident_type": "harassment",
+    "timestamp": "2024-10-13T20:47:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_802@example.com"
+  },
+  {
+    "zone_id": "892da474adbffff",
+    "incident_type": "assault",
+    "timestamp": "2025-02-01T20:38:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96178875400"
+  },
+  {
+    "zone_id": "892da474adbffff",
+    "incident_type": "murder",
+    "timestamp": "2024-10-04T23:39:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96174667276"
+  },
+  {
+    "zone_id": "892da474adbffff",
+    "incident_type": "explosion",
+    "timestamp": "2025-02-13T12:43:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_565@example.com"
+  },
+  {
+    "zone_id": "892da475d77ffff",
+    "incident_type": "kidnapping",
+    "timestamp": "2025-08-08T08:41:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96174111267"
+  },
+  {
+    "zone_id": "892da475d77ffff",
+    "incident_type": "airstrike",
+    "timestamp": "2024-12-26T19:51:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96171107153"
+  },
+  {
+    "zone_id": "892da475d77ffff",
+    "incident_type": "harassment",
+    "timestamp": "2024-10-09T17:10:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96171481499"
+  },
+  {
+    "zone_id": "892da475d77ffff",
+    "incident_type": "shooting",
+    "timestamp": "2025-03-01T18:45:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96171759556"
+  },
+  {
+    "zone_id": "892da475bb7ffff",
+    "incident_type": "robbery",
+    "timestamp": "2024-10-31T07:49:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_306@example.com"
+  },
+  {
+    "zone_id": "892da475bb7ffff",
+    "incident_type": "assault",
+    "timestamp": "2025-01-15T04:09:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_391@example.com"
+  },
+  {
+    "zone_id": "892da475bb7ffff",
+    "incident_type": "kidnapping",
+    "timestamp": "2025-01-23T14:39:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96179292731"
+  },
+  {
+    "zone_id": "892da47486bffff",
+    "incident_type": "assault",
+    "timestamp": "2024-10-03T15:31:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96171470954"
+  },
+  {
+    "zone_id": "892da47486bffff",
+    "incident_type": "shooting",
+    "timestamp": "2025-06-18T03:42:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96173240180"
+  },
+  {
+    "zone_id": "892da474a33ffff",
+    "incident_type": "drone_activity",
+    "timestamp": "2025-06-28T11:30:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_668@example.com"
+  },
+  {
+    "zone_id": "892da474a33ffff",
+    "incident_type": "murder",
+    "timestamp": "2025-01-03T10:05:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_748@example.com"
+  },
+  {
+    "zone_id": "892da474a33ffff",
+    "incident_type": "shooting",
+    "timestamp": "2025-07-17T14:55:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96179629771"
+  },
+  {
+    "zone_id": "892da474a33ffff",
+    "incident_type": "explosion",
+    "timestamp": "2025-01-17T19:39:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96173794617"
+  },
+  {
+    "zone_id": "892da466493ffff",
+    "incident_type": "kidnapping",
+    "timestamp": "2025-06-26T20:40:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_962@example.com"
+  },
+  {
+    "zone_id": "892da466493ffff",
+    "incident_type": "other",
+    "timestamp": "2025-06-12T14:41:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96177556246"
+  },
+  {
+    "zone_id": "892da466493ffff",
+    "incident_type": "other",
+    "timestamp": "2025-03-06T15:33:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96179267477"
+  },
+  {
+    "zone_id": "892da475d73ffff",
+    "incident_type": "other",
+    "timestamp": "2025-06-03T15:12:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96178421002"
+  },
+  {
+    "zone_id": "892da475d73ffff",
+    "incident_type": "robbery",
+    "timestamp": "2025-03-14T20:47:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_775@example.com"
+  },
+  {
+    "zone_id": "892da475d73ffff",
+    "incident_type": "airstrike",
+    "timestamp": "2025-05-17T02:34:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_390@example.com"
+  },
+  {
+    "zone_id": "892da475d73ffff",
+    "incident_type": "kidnapping",
+    "timestamp": "2025-04-17T23:37:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96174293654"
+  },
+  {
+    "zone_id": "892da4759dbffff",
+    "incident_type": "vandalism",
+    "timestamp": "2024-10-30T06:30:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_179@example.com"
+  },
+  {
+    "zone_id": "892da4759dbffff",
+    "incident_type": "shooting",
+    "timestamp": "2024-12-26T15:30:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96171325136"
+  },
+  {
+    "zone_id": "892da4759dbffff",
+    "incident_type": "harassment",
+    "timestamp": "2024-10-01T03:18:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_845@example.com"
+  },
+  {
+    "zone_id": "892da4759dbffff",
+    "incident_type": "robbery",
+    "timestamp": "2025-08-12T03:50:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96175288725"
+  },
+  {
+    "zone_id": "892da474aabffff",
+    "incident_type": "other",
+    "timestamp": "2025-06-27T23:52:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_831@example.com"
+  },
+  {
+    "zone_id": "892da474aabffff",
+    "incident_type": "kidnapping",
+    "timestamp": "2025-03-03T10:43:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96178492087"
+  },
+  {
+    "zone_id": "892da474aabffff",
+    "incident_type": "assault",
+    "timestamp": "2025-08-14T08:37:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_295@example.com"
+  },
+  {
+    "zone_id": "892da474aabffff",
+    "incident_type": "shooting",
+    "timestamp": "2024-10-17T17:49:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_449@example.com"
+  },
+  {
+    "zone_id": "892da475957ffff",
+    "incident_type": "kidnapping",
+    "timestamp": "2025-01-03T19:19:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_794@example.com"
+  },
+  {
+    "zone_id": "892da475957ffff",
+    "incident_type": "murder",
+    "timestamp": "2025-07-09T17:48:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_140@example.com"
+  },
+  {
+    "zone_id": "892da475957ffff",
+    "incident_type": "other",
+    "timestamp": "2024-10-10T08:35:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96172095386"
+  },
+  {
+    "zone_id": "892da475957ffff",
+    "incident_type": "kidnapping",
+    "timestamp": "2025-01-23T14:02:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_712@example.com"
+  },
+  {
+    "zone_id": "892da4664c7ffff",
+    "incident_type": "theft",
+    "timestamp": "2024-11-07T01:04:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96175204663"
+  },
+  {
+    "zone_id": "892da4664c7ffff",
+    "incident_type": "drone_activity",
+    "timestamp": "2025-09-01T07:41:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96173146300"
+  },
+  {
+    "zone_id": "892da4759d3ffff",
+    "incident_type": "explosion",
+    "timestamp": "2025-06-06T00:36:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_658@example.com"
+  },
+  {
+    "zone_id": "892da4759d3ffff",
+    "incident_type": "airstrike",
+    "timestamp": "2025-02-25T14:57:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96172799790"
+  },
+  {
+    "zone_id": "892da474a13ffff",
+    "incident_type": "vandalism",
+    "timestamp": "2025-02-21T06:41:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_516@example.com"
+  },
+  {
+    "zone_id": "892da474a13ffff",
+    "incident_type": "murder",
+    "timestamp": "2025-08-08T01:17:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96171625304"
+  },
+  {
+    "zone_id": "892da474a13ffff",
+    "incident_type": "theft",
+    "timestamp": "2025-03-14T02:55:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_853@example.com"
+  },
+  {
+    "zone_id": "892da4759c3ffff",
+    "incident_type": "drone_activity",
+    "timestamp": "2025-08-11T20:29:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96177388718"
+  },
+  {
+    "zone_id": "892da4759c3ffff",
+    "incident_type": "drone_activity",
+    "timestamp": "2024-09-27T15:48:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_776@example.com"
+  },
+  {
+    "zone_id": "892da4759d7ffff",
+    "incident_type": "other",
+    "timestamp": "2025-05-24T04:27:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_365@example.com"
+  },
+  {
+    "zone_id": "892da474abbffff",
+    "incident_type": "drone_activity",
+    "timestamp": "2025-04-16T23:47:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96172461884"
+  },
+  {
+    "zone_id": "892da474abbffff",
+    "incident_type": "explosion",
+    "timestamp": "2025-05-17T02:43:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_614@example.com"
+  },
+  {
+    "zone_id": "892da474abbffff",
+    "incident_type": "assault",
+    "timestamp": "2025-03-13T04:04:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96173990269"
+  },
+  {
+    "zone_id": "892da474a8bffff",
+    "incident_type": "explosion",
+    "timestamp": "2024-09-19T04:37:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_400@example.com"
+  },
+  {
+    "zone_id": "892da474a8bffff",
+    "incident_type": "drone_activity",
+    "timestamp": "2025-01-02T21:14:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_837@example.com"
+  },
+  {
+    "zone_id": "892da474a8bffff",
+    "incident_type": "theft",
+    "timestamp": "2024-09-06T09:20:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_384@example.com"
+  },
+  {
+    "zone_id": "892da47594fffff",
+    "incident_type": "theft",
+    "timestamp": "2024-09-08T07:31:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96175060358"
+  },
+  {
+    "zone_id": "892da4664d3ffff",
+    "incident_type": "vandalism",
+    "timestamp": "2025-08-20T10:53:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_937@example.com"
+  },
+  {
+    "zone_id": "892da4664d3ffff",
+    "incident_type": "assault",
+    "timestamp": "2025-05-31T07:42:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96173781212"
+  },
+  {
+    "zone_id": "892da4664d3ffff",
+    "incident_type": "shooting",
+    "timestamp": "2025-08-21T07:23:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_853@example.com"
+  },
+  {
+    "zone_id": "892da4664d3ffff",
+    "incident_type": "theft",
+    "timestamp": "2024-09-21T20:49:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_454@example.com"
+  },
+  {
+    "zone_id": "892da475d37ffff",
+    "incident_type": "kidnapping",
+    "timestamp": "2025-06-10T23:08:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96177120842"
+  },
+  {
+    "zone_id": "892da475d37ffff",
+    "incident_type": "murder",
+    "timestamp": "2025-08-31T16:26:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_649@example.com"
+  },
+  {
+    "zone_id": "892da474acfffff",
+    "incident_type": "explosion",
+    "timestamp": "2024-11-11T19:47:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96171700247"
+  },
+  {
+    "zone_id": "892da474acfffff",
+    "incident_type": "vandalism",
+    "timestamp": "2024-11-02T04:35:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96178493952"
+  },
+  {
+    "zone_id": "892da474acfffff",
+    "incident_type": "murder",
+    "timestamp": "2025-03-29T02:24:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_818@example.com"
+  },
+  {
+    "zone_id": "892da474a77ffff",
+    "incident_type": "drone_activity",
+    "timestamp": "2025-01-08T21:06:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96178947338"
+  },
+  {
+    "zone_id": "892da474a77ffff",
+    "incident_type": "kidnapping",
+    "timestamp": "2025-08-30T18:20:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96173538552"
+  },
+  {
+    "zone_id": "892da47590bffff",
+    "incident_type": "drone_activity",
+    "timestamp": "2025-04-21T03:55:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_452@example.com"
+  },
+  {
+    "zone_id": "892da475bbbffff",
+    "incident_type": "assault",
+    "timestamp": "2024-11-19T03:06:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_862@example.com"
+  },
+  {
+    "zone_id": "892da474babffff",
+    "incident_type": "murder",
+    "timestamp": "2025-02-14T22:57:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_865@example.com"
+  },
+  {
+    "zone_id": "892da475907ffff",
+    "incident_type": "theft",
+    "timestamp": "2024-10-16T17:28:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96172763734"
+  },
+  {
+    "zone_id": "892da47590fffff",
+    "incident_type": "murder",
+    "timestamp": "2025-01-24T20:56:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96173365088"
+  },
+  {
+    "zone_id": "892da47590fffff",
+    "incident_type": "explosion",
+    "timestamp": "2024-10-12T05:50:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_396@example.com"
+  },
+  {
+    "zone_id": "892da474a17ffff",
+    "incident_type": "other",
+    "timestamp": "2025-06-27T10:53:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_822@example.com"
+  },
+  {
+    "zone_id": "892da474a17ffff",
+    "incident_type": "theft",
+    "timestamp": "2024-09-13T11:39:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_266@example.com"
+  },
+  {
+    "zone_id": "892da474a17ffff",
+    "incident_type": "shooting",
+    "timestamp": "2024-09-26T01:51:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_366@example.com"
+  },
+  {
+    "zone_id": "892da47599bffff",
+    "incident_type": "airstrike",
+    "timestamp": "2025-01-21T14:16:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_372@example.com"
+  },
+  {
+    "zone_id": "892da47599bffff",
+    "incident_type": "theft",
+    "timestamp": "2025-06-13T04:59:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_655@example.com"
+  },
+  {
+    "zone_id": "892da47599bffff",
+    "incident_type": "explosion",
+    "timestamp": "2025-03-26T18:24:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_510@example.com"
+  },
+  {
+    "zone_id": "892da47599bffff",
+    "incident_type": "explosion",
+    "timestamp": "2025-01-05T15:44:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_856@example.com"
+  },
+  {
+    "zone_id": "892da4759c7ffff",
+    "incident_type": "harassment",
+    "timestamp": "2025-01-30T18:34:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_810@example.com"
+  },
+  {
+    "zone_id": "892da4759c7ffff",
+    "incident_type": "vandalism",
+    "timestamp": "2024-10-25T23:00:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96173375645"
+  },
+  {
+    "zone_id": "892da474a6bffff",
+    "incident_type": "robbery",
+    "timestamp": "2025-01-30T06:56:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96179997595"
+  },
+  {
+    "zone_id": "892da474a6bffff",
+    "incident_type": "robbery",
+    "timestamp": "2025-05-27T21:39:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "+96178464177"
+  },
+  {
+    "zone_id": "892da474a6bffff",
+    "incident_type": "drone_activity",
+    "timestamp": "2025-08-26T02:38:41.787993Z",
+    "city": "Beirut",
+    "reported_by": "user_367@example.com"
+  },
+  {
+    "zone_id": "892da474a6bffff",
+    "incident_type": "explosion",
+    "timestamp": "2025-02-27T16:30:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_314@example.com"
+  },
+  {
+    "zone_id": "892da474bafffff",
+    "incident_type": "vandalism",
+    "timestamp": "2025-01-21T13:51:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_582@example.com"
+  },
+  {
+    "zone_id": "892da475b83ffff",
+    "incident_type": "harassment",
+    "timestamp": "2025-01-10T19:23:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96172199922"
+  },
+  {
+    "zone_id": "892da475b83ffff",
+    "incident_type": "shooting",
+    "timestamp": "2024-09-23T05:40:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96176277928"
+  },
+  {
+    "zone_id": "892da475b83ffff",
+    "incident_type": "explosion",
+    "timestamp": "2025-05-12T07:43:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_894@example.com"
+  },
+  {
+    "zone_id": "892da474a83ffff",
+    "incident_type": "other",
+    "timestamp": "2024-10-18T16:22:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_864@example.com"
+  },
+  {
+    "zone_id": "892da474a83ffff",
+    "incident_type": "murder",
+    "timestamp": "2025-07-05T01:06:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96175723516"
+  },
+  {
+    "zone_id": "892da474a83ffff",
+    "incident_type": "kidnapping",
+    "timestamp": "2025-06-03T00:49:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_972@example.com"
+  },
+  {
+    "zone_id": "892da46649bffff",
+    "incident_type": "kidnapping",
+    "timestamp": "2025-05-22T11:54:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96172511342"
+  },
+  {
+    "zone_id": "892da46649bffff",
+    "incident_type": "murder",
+    "timestamp": "2024-11-16T17:40:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96179444122"
+  },
+  {
+    "zone_id": "892da4759a3ffff",
+    "incident_type": "shooting",
+    "timestamp": "2024-10-30T01:24:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_699@example.com"
+  },
+  {
+    "zone_id": "892da4759a3ffff",
+    "incident_type": "kidnapping",
+    "timestamp": "2024-12-01T00:31:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_948@example.com"
+  },
+  {
+    "zone_id": "892da4759a3ffff",
+    "incident_type": "kidnapping",
+    "timestamp": "2025-07-02T03:57:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_152@example.com"
+  },
+  {
+    "zone_id": "892da475923ffff",
+    "incident_type": "kidnapping",
+    "timestamp": "2025-06-19T16:39:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_199@example.com"
+  },
+  {
+    "zone_id": "892da47582fffff",
+    "incident_type": "other",
+    "timestamp": "2024-10-13T04:03:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96175685514"
+  },
+  {
+    "zone_id": "892da47582fffff",
+    "incident_type": "other",
+    "timestamp": "2025-06-15T04:03:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_442@example.com"
+  },
+  {
+    "zone_id": "892da47582fffff",
+    "incident_type": "harassment",
+    "timestamp": "2025-05-10T20:08:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_526@example.com"
+  },
+  {
+    "zone_id": "892da4759cfffff",
+    "incident_type": "kidnapping",
+    "timestamp": "2025-01-20T10:40:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_738@example.com"
+  },
+  {
+    "zone_id": "892da4759cfffff",
+    "incident_type": "kidnapping",
+    "timestamp": "2025-08-06T18:39:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96174816644"
+  },
+  {
+    "zone_id": "892da474b33ffff",
+    "incident_type": "vandalism",
+    "timestamp": "2024-09-07T02:16:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96179748090"
+  },
+  {
+    "zone_id": "892da474b33ffff",
+    "incident_type": "drone_activity",
+    "timestamp": "2025-07-26T23:32:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96172387419"
+  },
+  {
+    "zone_id": "892da474b33ffff",
+    "incident_type": "harassment",
+    "timestamp": "2025-03-06T01:29:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_278@example.com"
+  },
+  {
+    "zone_id": "892da474b33ffff",
+    "incident_type": "drone_activity",
+    "timestamp": "2024-10-29T10:12:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96172998320"
+  },
+  {
+    "zone_id": "892da475d23ffff",
+    "incident_type": "harassment",
+    "timestamp": "2025-04-28T20:33:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96174138241"
+  },
+  {
+    "zone_id": "892da475d23ffff",
+    "incident_type": "other",
+    "timestamp": "2024-09-13T03:11:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_106@example.com"
+  },
+  {
+    "zone_id": "892da475d23ffff",
+    "incident_type": "shooting",
+    "timestamp": "2025-02-12T05:22:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_544@example.com"
+  },
+  {
+    "zone_id": "892da475827ffff",
+    "incident_type": "assault",
+    "timestamp": "2025-02-17T16:22:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96178551312"
+  },
+  {
+    "zone_id": "892da475827ffff",
+    "incident_type": "robbery",
+    "timestamp": "2025-03-27T04:14:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96176654860"
+  },
+  {
+    "zone_id": "892da475827ffff",
+    "incident_type": "theft",
+    "timestamp": "2024-11-07T17:00:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96177755317"
+  },
+  {
+    "zone_id": "892da475d7bffff",
+    "incident_type": "theft",
+    "timestamp": "2024-09-19T17:06:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_888@example.com"
+  },
+  {
+    "zone_id": "892da475d7bffff",
+    "incident_type": "airstrike",
+    "timestamp": "2024-10-02T18:03:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_682@example.com"
+  },
+  {
+    "zone_id": "892da475d7bffff",
+    "incident_type": "explosion",
+    "timestamp": "2025-08-19T23:59:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96177021026"
+  },
+  {
+    "zone_id": "892da475d7bffff",
+    "incident_type": "explosion",
+    "timestamp": "2025-07-04T15:04:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_184@example.com"
+  },
+  {
+    "zone_id": "892da474ac3ffff",
+    "incident_type": "assault",
+    "timestamp": "2025-03-23T16:50:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96173896626"
+  },
+  {
+    "zone_id": "892da4759afffff",
+    "incident_type": "murder",
+    "timestamp": "2025-04-14T17:36:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96173829644"
+  },
+  {
+    "zone_id": "892da4759afffff",
+    "incident_type": "harassment",
+    "timestamp": "2025-02-19T09:35:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96177139237"
+  },
+  {
+    "zone_id": "892da4759afffff",
+    "incident_type": "kidnapping",
+    "timestamp": "2024-12-16T22:00:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96171201898"
+  },
+  {
+    "zone_id": "892da4759afffff",
+    "incident_type": "other",
+    "timestamp": "2025-03-21T00:26:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_799@example.com"
+  },
+  {
+    "zone_id": "892da475bb3ffff",
+    "incident_type": "theft",
+    "timestamp": "2025-08-31T00:32:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_884@example.com"
+  },
+  {
+    "zone_id": "892da475bb3ffff",
+    "incident_type": "other",
+    "timestamp": "2024-09-29T14:54:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_450@example.com"
+  },
+  {
+    "zone_id": "892da475bb3ffff",
+    "incident_type": "theft",
+    "timestamp": "2025-01-18T10:30:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_270@example.com"
+  },
+  {
+    "zone_id": "892da475bb3ffff",
+    "incident_type": "airstrike",
+    "timestamp": "2024-09-24T04:43:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96174901002"
+  },
+  {
+    "zone_id": "892da4759b7ffff",
+    "incident_type": "vandalism",
+    "timestamp": "2024-11-23T17:45:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_229@example.com"
+  },
+  {
+    "zone_id": "892da4759b7ffff",
+    "incident_type": "robbery",
+    "timestamp": "2024-10-11T15:03:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96171860444"
+  },
+  {
+    "zone_id": "892da4759b7ffff",
+    "incident_type": "theft",
+    "timestamp": "2025-01-03T15:04:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_535@example.com"
+  },
+  {
+    "zone_id": "892da474b8bffff",
+    "incident_type": "vandalism",
+    "timestamp": "2025-04-02T10:38:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96177281951"
+  },
+  {
+    "zone_id": "892da474b8bffff",
+    "incident_type": "theft",
+    "timestamp": "2025-01-03T23:36:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96176431912"
+  },
+  {
+    "zone_id": "892da474b8bffff",
+    "incident_type": "harassment",
+    "timestamp": "2025-04-18T12:56:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_163@example.com"
+  },
+  {
+    "zone_id": "892da4759abffff",
+    "incident_type": "assault",
+    "timestamp": "2025-01-21T10:32:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_422@example.com"
+  },
+  {
+    "zone_id": "892da4759abffff",
+    "incident_type": "kidnapping",
+    "timestamp": "2025-04-17T15:06:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_690@example.com"
+  },
+  {
+    "zone_id": "892da4759abffff",
+    "incident_type": "assault",
+    "timestamp": "2024-10-01T18:10:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_587@example.com"
+  },
+  {
+    "zone_id": "892da4759abffff",
+    "incident_type": "shooting",
+    "timestamp": "2025-02-04T07:57:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96177505608"
+  },
+  {
+    "zone_id": "892da475903ffff",
+    "incident_type": "other",
+    "timestamp": "2025-03-03T03:53:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_601@example.com"
+  },
+  {
+    "zone_id": "892da475903ffff",
+    "incident_type": "kidnapping",
+    "timestamp": "2024-12-12T13:26:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_130@example.com"
+  },
+  {
+    "zone_id": "892da475903ffff",
+    "incident_type": "assault",
+    "timestamp": "2024-10-18T06:38:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96177667881"
+  },
+  {
+    "zone_id": "892da475903ffff",
+    "incident_type": "kidnapping",
+    "timestamp": "2025-08-19T10:20:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96175151143"
+  },
+  {
+    "zone_id": "892da475b87ffff",
+    "incident_type": "murder",
+    "timestamp": "2024-09-26T00:03:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96175001367"
+  },
+  {
+    "zone_id": "892da474bd7ffff",
+    "incident_type": "vandalism",
+    "timestamp": "2025-02-27T01:18:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_533@example.com"
+  },
+  {
+    "zone_id": "892da474bd7ffff",
+    "incident_type": "drone_activity",
+    "timestamp": "2025-02-10T20:43:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96172133474"
+  },
+  {
+    "zone_id": "892da4759a7ffff",
+    "incident_type": "vandalism",
+    "timestamp": "2025-08-01T23:57:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96178290425"
+  },
+  {
+    "zone_id": "892da4759a7ffff",
+    "incident_type": "robbery",
+    "timestamp": "2025-05-02T08:51:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96175801854"
+  },
+  {
+    "zone_id": "892da4759a7ffff",
+    "incident_type": "explosion",
+    "timestamp": "2024-10-02T13:25:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96177829499"
+  },
+  {
+    "zone_id": "892da4759a7ffff",
+    "incident_type": "explosion",
+    "timestamp": "2025-08-06T08:07:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_631@example.com"
+  },
+  {
+    "zone_id": "892da474a87ffff",
+    "incident_type": "harassment",
+    "timestamp": "2025-01-06T18:05:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96176695291"
+  },
+  {
+    "zone_id": "892da474a87ffff",
+    "incident_type": "explosion",
+    "timestamp": "2024-11-18T18:22:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_273@example.com"
+  },
+  {
+    "zone_id": "892da474a87ffff",
+    "incident_type": "harassment",
+    "timestamp": "2025-03-24T09:56:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_956@example.com"
+  },
+  {
+    "zone_id": "892da474a87ffff",
+    "incident_type": "vandalism",
+    "timestamp": "2024-12-12T08:54:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96174952944"
+  },
+  {
+    "zone_id": "892da475b97ffff",
+    "incident_type": "harassment",
+    "timestamp": "2025-04-20T04:46:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96179343712"
+  },
+  {
+    "zone_id": "892da475b97ffff",
+    "incident_type": "shooting",
+    "timestamp": "2024-12-12T10:44:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96172296029"
+  },
+  {
+    "zone_id": "892da475b97ffff",
+    "incident_type": "airstrike",
+    "timestamp": "2025-03-29T07:52:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96173760206"
+  },
+  {
+    "zone_id": "892da475b97ffff",
+    "incident_type": "airstrike",
+    "timestamp": "2024-09-15T20:38:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_333@example.com"
+  },
+  {
+    "zone_id": "892da474a2bffff",
+    "incident_type": "harassment",
+    "timestamp": "2025-01-07T22:35:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_891@example.com"
+  },
+  {
+    "zone_id": "892da475d2fffff",
+    "incident_type": "robbery",
+    "timestamp": "2025-03-13T05:30:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96171157818"
+  },
+  {
+    "zone_id": "892da475d2fffff",
+    "incident_type": "vandalism",
+    "timestamp": "2025-06-09T12:19:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96179746630"
+  },
+  {
+    "zone_id": "892da475d2fffff",
+    "incident_type": "kidnapping",
+    "timestamp": "2025-08-16T19:03:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96172085630"
+  },
+  {
+    "zone_id": "892da474ad7ffff",
+    "incident_type": "airstrike",
+    "timestamp": "2024-10-30T16:09:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_386@example.com"
+  },
+  {
+    "zone_id": "892da474ad7ffff",
+    "incident_type": "other",
+    "timestamp": "2025-07-06T05:20:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96172618868"
+  },
+  {
+    "zone_id": "892da474ad7ffff",
+    "incident_type": "theft",
+    "timestamp": "2025-04-01T19:22:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_557@example.com"
+  },
+  {
+    "zone_id": "892da474a57ffff",
+    "incident_type": "robbery",
+    "timestamp": "2024-12-08T12:04:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96177964286"
+  },
+  {
+    "zone_id": "892da474a57ffff",
+    "incident_type": "robbery",
+    "timestamp": "2025-02-04T05:29:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96176084437"
+  },
+  {
+    "zone_id": "892da474a57ffff",
+    "incident_type": "explosion",
+    "timestamp": "2024-12-16T15:03:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_712@example.com"
+  },
+  {
+    "zone_id": "892da474a57ffff",
+    "incident_type": "theft",
+    "timestamp": "2024-12-27T19:49:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_389@example.com"
+  },
+  {
+    "zone_id": "892da475943ffff",
+    "incident_type": "shooting",
+    "timestamp": "2025-02-17T02:21:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96177362893"
+  },
+  {
+    "zone_id": "892da475d63ffff",
+    "incident_type": "other",
+    "timestamp": "2024-09-24T06:26:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96174994526"
+  },
+  {
+    "zone_id": "892da475d63ffff",
+    "incident_type": "murder",
+    "timestamp": "2025-08-02T05:28:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_696@example.com"
+  },
+  {
+    "zone_id": "892da475d63ffff",
+    "incident_type": "theft",
+    "timestamp": "2025-04-28T18:38:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96175985916"
+  },
+  {
+    "zone_id": "892da474bbbffff",
+    "incident_type": "vandalism",
+    "timestamp": "2024-11-08T17:39:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96178712363"
+  },
+  {
+    "zone_id": "892da474bbbffff",
+    "incident_type": "theft",
+    "timestamp": "2025-05-25T16:25:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_995@example.com"
+  },
+  {
+    "zone_id": "892da474bbbffff",
+    "incident_type": "shooting",
+    "timestamp": "2025-08-05T23:04:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96174493629"
+  },
+  {
+    "zone_id": "892da474bdbffff",
+    "incident_type": "airstrike",
+    "timestamp": "2025-02-07T12:38:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_679@example.com"
+  },
+  {
+    "zone_id": "892da474bdbffff",
+    "incident_type": "harassment",
+    "timestamp": "2024-10-10T16:02:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_838@example.com"
+  },
+  {
+    "zone_id": "892da474bdbffff",
+    "incident_type": "explosion",
+    "timestamp": "2024-09-07T12:50:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96174537602"
+  },
+  {
+    "zone_id": "892da474bdbffff",
+    "incident_type": "robbery",
+    "timestamp": "2024-12-15T08:27:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96173216723"
+  },
+  {
+    "zone_id": "892da474bd3ffff",
+    "incident_type": "assault",
+    "timestamp": "2024-12-13T18:38:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96179920987"
+  },
+  {
+    "zone_id": "892da474bd3ffff",
+    "incident_type": "explosion",
+    "timestamp": "2025-05-11T05:16:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_863@example.com"
+  },
+  {
+    "zone_id": "892da474a9bffff",
+    "incident_type": "robbery",
+    "timestamp": "2024-10-02T14:39:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96171602319"
+  },
+  {
+    "zone_id": "892da474a23ffff",
+    "incident_type": "harassment",
+    "timestamp": "2024-12-04T04:00:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_892@example.com"
+  },
+  {
+    "zone_id": "892da474a23ffff",
+    "incident_type": "robbery",
+    "timestamp": "2025-06-21T16:49:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_370@example.com"
+  },
+  {
+    "zone_id": "892da47598bffff",
+    "incident_type": "drone_activity",
+    "timestamp": "2025-03-30T05:27:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_443@example.com"
+  },
+  {
+    "zone_id": "892da474b47ffff",
+    "incident_type": "drone_activity",
+    "timestamp": "2024-11-21T19:46:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_562@example.com"
+  },
+  {
+    "zone_id": "892da474b47ffff",
+    "incident_type": "vandalism",
+    "timestamp": "2025-08-06T21:01:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_512@example.com"
+  },
+  {
+    "zone_id": "892da474b47ffff",
+    "incident_type": "theft",
+    "timestamp": "2025-04-14T22:51:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96172919920"
+  },
+  {
+    "zone_id": "892da474b47ffff",
+    "incident_type": "other",
+    "timestamp": "2025-06-05T06:43:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_527@example.com"
+  },
+  {
+    "zone_id": "892da475993ffff",
+    "incident_type": "airstrike",
+    "timestamp": "2025-08-05T12:54:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96179710087"
+  },
+  {
+    "zone_id": "892da475993ffff",
+    "incident_type": "theft",
+    "timestamp": "2025-04-15T15:31:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96178432121"
+  },
+  {
+    "zone_id": "892da474ad3ffff",
+    "incident_type": "vandalism",
+    "timestamp": "2025-01-24T14:03:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_116@example.com"
+  },
+  {
+    "zone_id": "892da474ad3ffff",
+    "incident_type": "explosion",
+    "timestamp": "2025-04-19T06:06:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96174364512"
+  },
+  {
+    "zone_id": "892da475933ffff",
+    "incident_type": "vandalism",
+    "timestamp": "2024-12-24T14:59:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96177025284"
+  },
+  {
+    "zone_id": "892da475933ffff",
+    "incident_type": "vandalism",
+    "timestamp": "2025-06-27T22:22:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96174441610"
+  },
+  {
+    "zone_id": "892da474a0bffff",
+    "incident_type": "assault",
+    "timestamp": "2024-09-22T07:25:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96171584924"
+  },
+  {
+    "zone_id": "892da474a0bffff",
+    "incident_type": "robbery",
+    "timestamp": "2024-10-28T23:42:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96172779764"
+  },
+  {
+    "zone_id": "892da474a0bffff",
+    "incident_type": "vandalism",
+    "timestamp": "2024-12-21T13:20:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96176108602"
+  },
+  {
+    "zone_id": "892da475937ffff",
+    "incident_type": "assault",
+    "timestamp": "2025-01-26T08:12:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_796@example.com"
+  },
+  {
+    "zone_id": "892da474b87ffff",
+    "incident_type": "other",
+    "timestamp": "2024-10-01T15:44:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_394@example.com"
+  },
+  {
+    "zone_id": "892da474b87ffff",
+    "incident_type": "vandalism",
+    "timestamp": "2024-10-08T12:48:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96171843916"
+  },
+  {
+    "zone_id": "892da474b87ffff",
+    "incident_type": "kidnapping",
+    "timestamp": "2025-08-08T09:12:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96176770096"
+  },
+  {
+    "zone_id": "892da474b87ffff",
+    "incident_type": "airstrike",
+    "timestamp": "2024-12-22T11:18:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_567@example.com"
+  },
+  {
+    "zone_id": "892da474bc3ffff",
+    "incident_type": "shooting",
+    "timestamp": "2025-02-12T17:38:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96179598238"
+  },
+  {
+    "zone_id": "892da474aa7ffff",
+    "incident_type": "vandalism",
+    "timestamp": "2025-06-11T07:12:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96171634788"
+  },
+  {
+    "zone_id": "892da474aa7ffff",
+    "incident_type": "drone_activity",
+    "timestamp": "2025-02-07T03:09:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96178447798"
+  },
+  {
+    "zone_id": "892da474aa7ffff",
+    "incident_type": "murder",
+    "timestamp": "2024-09-21T04:35:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96173917011"
+  },
+  {
+    "zone_id": "892da474aa7ffff",
+    "incident_type": "shooting",
+    "timestamp": "2025-02-21T20:45:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96173650021"
+  },
+  {
+    "zone_id": "892da474aafffff",
+    "incident_type": "airstrike",
+    "timestamp": "2025-06-25T22:44:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_225@example.com"
+  },
+  {
+    "zone_id": "892da474aafffff",
+    "incident_type": "drone_activity",
+    "timestamp": "2025-08-16T23:51:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96179944640"
+  },
+  {
+    "zone_id": "892da475983ffff",
+    "incident_type": "kidnapping",
+    "timestamp": "2025-03-22T22:18:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_293@example.com"
+  },
+  {
+    "zone_id": "892da475983ffff",
+    "incident_type": "shooting",
+    "timestamp": "2025-04-25T02:18:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96179553692"
+  },
+  {
+    "zone_id": "892da475983ffff",
+    "incident_type": "harassment",
+    "timestamp": "2025-04-24T00:58:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96179390892"
+  },
+  {
+    "zone_id": "892da475983ffff",
+    "incident_type": "theft",
+    "timestamp": "2025-05-08T00:12:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "+96176120523"
+  },
+  {
+    "zone_id": "892da4664dbffff",
+    "incident_type": "other",
+    "timestamp": "2025-03-12T08:04:41.792255Z",
+    "city": "Beirut",
+    "reported_by": "user_992@example.com"
+  },
+  {
+    "zone_id": "892da4758b7ffff",
+    "incident_type": "vandalism",
+    "timestamp": "2025-08-15T06:47:41.795089Z",
+    "city": "Beirut",
+    "reported_by": "user_377@example.com"
+  },
+  {
+    "zone_id": "892da475d6bffff",
+    "incident_type": "assault",
+    "timestamp": "2025-07-07T00:37:41.795089Z",
+    "city": "Beirut",
+    "reported_by": "+96173879763"
+  },
+  {
+    "zone_id": "892da475d6bffff",
+    "incident_type": "harassment",
+    "timestamp": "2025-02-12T03:24:41.795089Z",
+    "city": "Beirut",
+    "reported_by": "user_347@example.com"
+  },
+  {
+    "zone_id": "892da475d4fffff",
+    "incident_type": "explosion",
+    "timestamp": "2025-05-23T12:32:41.795089Z",
+    "city": "Beirut",
+    "reported_by": "user_236@example.com"
+  },
+  {
+    "zone_id": "892da475d4fffff",
+    "incident_type": "harassment",
+    "timestamp": "2024-12-17T11:58:41.795089Z",
+    "city": "Beirut",
+    "reported_by": "+96179249471"
+  },
+  {
+    "zone_id": "892da475d4fffff",
+    "incident_type": "harassment",
+    "timestamp": "2024-09-08T18:23:41.795089Z",
+    "city": "Beirut",
+    "reported_by": "user_988@example.com"
+  },
+  {
+    "zone_id": "892da475977ffff",
+    "incident_type": "kidnapping",
+    "timestamp": "2024-12-10T14:27:41.795089Z",
+    "city": "Beirut",
+    "reported_by": "+96172992633"
+  },
+  {
+    "zone_id": "892da47594bffff",
+    "incident_type": "vandalism",
+    "timestamp": "2024-10-10T06:46:41.795089Z",
+    "city": "Beirut",
+    "reported_by": "+96171422875"
+  },
+  {
+    "zone_id": "892da474a53ffff",
+    "incident_type": "vandalism",
+    "timestamp": "2025-08-18T12:27:41.795571Z",
+    "city": "Beirut",
+    "reported_by": "+96172647153"
+  },
+  {
+    "zone_id": "892da474a53ffff",
+    "incident_type": "harassment",
+    "timestamp": "2024-09-22T19:38:41.795571Z",
+    "city": "Beirut",
+    "reported_by": "+96177377418"
+  },
+  {
+    "zone_id": "892da474a37ffff",
+    "incident_type": "theft",
+    "timestamp": "2024-12-24T20:57:41.795571Z",
+    "city": "Beirut",
+    "reported_by": "+96171116016"
+  },
+  {
+    "zone_id": "892da474a37ffff",
+    "incident_type": "vandalism",
+    "timestamp": "2025-06-08T21:19:41.795571Z",
+    "city": "Beirut",
+    "reported_by": "user_204@example.com"
+  },
+  {
+    "zone_id": "892da474a37ffff",
+    "incident_type": "other",
+    "timestamp": "2025-03-22T12:48:41.795571Z",
+    "city": "Beirut",
+    "reported_by": "+96173499209"
+  },
+  {
+    "zone_id": "892da475917ffff",
+    "incident_type": "vandalism",
+    "timestamp": "2025-03-20T17:27:41.795571Z",
+    "city": "Beirut",
+    "reported_by": "user_611@example.com"
+  },
+  {
+    "zone_id": "892da475917ffff",
+    "incident_type": "other",
+    "timestamp": "2024-11-29T03:12:41.795571Z",
+    "city": "Beirut",
+    "reported_by": "+96175207488"
+  },
+  {
+    "zone_id": "892da474a2fffff",
+    "incident_type": "kidnapping",
+    "timestamp": "2025-01-09T15:33:41.795571Z",
+    "city": "Beirut",
+    "reported_by": "+96172916906"
+  },
+  {
+    "zone_id": "892da474ab3ffff",
+    "incident_type": "explosion",
+    "timestamp": "2025-04-08T00:21:41.795571Z",
+    "city": "Beirut",
+    "reported_by": "user_467@example.com"
+  },
+  {
+    "zone_id": "892da474ab3ffff",
+    "incident_type": "airstrike",
+    "timestamp": "2025-06-03T01:12:41.795571Z",
+    "city": "Beirut",
+    "reported_by": "user_116@example.com"
+  },
+  {
+    "zone_id": "892da474ab3ffff",
+    "incident_type": "drone_activity",
+    "timestamp": "2024-12-11T14:23:41.795571Z",
+    "city": "Beirut",
+    "reported_by": "user_607@example.com"
+  },
+  {
+    "zone_id": "892da474ab3ffff",
+    "incident_type": "theft",
+    "timestamp": "2025-08-05T19:16:41.795571Z",
+    "city": "Beirut",
+    "reported_by": "+96178278965"
+  },
+  {
+    "zone_id": "892da475953ffff",
+    "incident_type": "other",
+    "timestamp": "2025-01-20T02:26:41.795571Z",
+    "city": "Beirut",
+    "reported_by": "+96176086376"
+  },
+  {
+    "zone_id": "892da475953ffff",
+    "incident_type": "other",
+    "timestamp": "2025-08-30T08:46:41.795571Z",
+    "city": "Beirut",
+    "reported_by": "user_424@example.com"
+  },
+  {
+    "zone_id": "892da475953ffff",
+    "incident_type": "harassment",
+    "timestamp": "2025-06-30T02:58:41.795571Z",
+    "city": "Beirut",
+    "reported_by": "user_372@example.com"
+  },
+  {
+    "zone_id": "892da475953ffff",
+    "incident_type": "explosion",
+    "timestamp": "2025-04-12T09:13:41.795571Z",
+    "city": "Beirut",
+    "reported_by": "user_978@example.com"
+  },
+  {
+    "zone_id": "892da475997ffff",
+    "incident_type": "shooting",
+    "timestamp": "2025-06-07T11:07:41.795571Z",
+    "city": "Beirut",
+    "reported_by": "user_439@example.com"
+  },
+  {
+    "zone_id": "892da475d2bffff",
+    "incident_type": "murder",
+    "timestamp": "2025-01-04T17:11:41.795571Z",
+    "city": "Beirut",
+    "reported_by": "user_935@example.com"
+  },
+  {
+    "zone_id": "892da475d2bffff",
+    "incident_type": "assault",
+    "timestamp": "2025-05-01T06:11:41.796424Z",
+    "city": "Beirut",
+    "reported_by": "+96177636713"
+  },
+  {
+    "zone_id": "892da475d2bffff",
+    "incident_type": "other",
+    "timestamp": "2025-03-22T18:50:41.796424Z",
+    "city": "Beirut",
+    "reported_by": "user_456@example.com"
+  },
+  {
+    "zone_id": "892da475d2bffff",
+    "incident_type": "assault",
+    "timestamp": "2025-07-31T06:20:41.796424Z",
+    "city": "Beirut",
+    "reported_by": "+96176715640"
+  },
+  {
+    "zone_id": "892da474e6bffff",
+    "incident_type": "drone_activity",
+    "timestamp": "2025-08-01T10:53:41.796424Z",
+    "city": "Beirut",
+    "reported_by": "+96179133261"
+  },
+  {
+    "zone_id": "892da474e6bffff",
+    "incident_type": "drone_activity",
+    "timestamp": "2025-07-03T11:43:41.796424Z",
+    "city": "Beirut",
+    "reported_by": "user_747@example.com"
+  },
+  {
+    "zone_id": "892da474e6bffff",
+    "incident_type": "murder",
+    "timestamp": "2024-11-01T14:46:41.796424Z",
+    "city": "Beirut",
+    "reported_by": "+96174002810"
+  },
+  {
+    "zone_id": "892da474a03ffff",
+    "incident_type": "theft",
+    "timestamp": "2025-02-11T18:51:41.796424Z",
+    "city": "Beirut",
+    "reported_by": "+96176879967"
+  },
+  {
+    "zone_id": "892da4758a7ffff",
+    "incident_type": "vandalism",
+    "timestamp": "2025-03-28T06:32:41.796424Z",
+    "city": "Beirut",
+    "reported_by": "+96171692088"
+  },
+  {
+    "zone_id": "892da4758a7ffff",
+    "incident_type": "murder",
+    "timestamp": "2024-09-24T14:36:41.796424Z",
+    "city": "Beirut",
+    "reported_by": "+96178757506"
+  },
+  {
+    "zone_id": "892da474b53ffff",
+    "incident_type": "murder",
+    "timestamp": "2025-03-20T16:26:41.796424Z",
+    "city": "Beirut",
+    "reported_by": "+96172993751"
+  },
+  {
+    "zone_id": "892da474b53ffff",
+    "incident_type": "other",
+    "timestamp": "2024-09-23T00:10:41.796424Z",
+    "city": "Beirut",
+    "reported_by": "+96173967023"
+  },
+  {
+    "zone_id": "892da474863ffff",
+    "incident_type": "murder",
+    "timestamp": "2025-04-02T04:34:41.796424Z",
+    "city": "Beirut",
+    "reported_by": "+96174441451"
+  },
+  {
+    "zone_id": "892da474863ffff",
+    "incident_type": "vandalism",
+    "timestamp": "2024-10-20T05:20:41.796424Z",
+    "city": "Beirut",
+    "reported_by": "+96176549908"
+  },
+  {
+    "zone_id": "892da474863ffff",
+    "incident_type": "theft",
+    "timestamp": "2025-02-05T09:05:41.796424Z",
+    "city": "Beirut",
+    "reported_by": "user_906@example.com"
+  },
+  {
+    "zone_id": "892da474863ffff",
+    "incident_type": "shooting",
+    "timestamp": "2025-02-16T08:04:41.797059Z",
+    "city": "Beirut",
+    "reported_by": "+96178894484"
+  },
+  {
+    "zone_id": "892da474a43ffff",
+    "incident_type": "explosion",
+    "timestamp": "2024-09-07T07:19:41.797059Z",
+    "city": "Beirut",
+    "reported_by": "user_294@example.com"
+  },
+  {
+    "zone_id": "892da474a43ffff",
+    "incident_type": "theft",
+    "timestamp": "2025-02-25T09:53:41.797059Z",
+    "city": "Beirut",
+    "reported_by": "+96171965440"
+  },
+  {
+    "zone_id": "892da474a43ffff",
+    "incident_type": "airstrike",
+    "timestamp": "2025-07-30T12:12:41.797059Z",
+    "city": "Beirut",
+    "reported_by": "+96175901634"
+  },
+  {
+    "zone_id": "892da474a43ffff",
+    "incident_type": "airstrike",
+    "timestamp": "2025-06-29T11:13:41.797059Z",
+    "city": "Beirut",
+    "reported_by": "+96176305446"
+  },
+  {
+    "zone_id": "892da474aa3ffff",
+    "incident_type": "airstrike",
+    "timestamp": "2025-01-22T20:03:41.797059Z",
+    "city": "Beirut",
+    "reported_by": "user_432@example.com"
+  },
+  {
+    "zone_id": "892da474aa3ffff",
+    "incident_type": "harassment",
+    "timestamp": "2024-10-20T12:17:41.797059Z",
+    "city": "Beirut",
+    "reported_by": "+96175663093"
+  },
+  {
+    "zone_id": "892da47595bffff",
+    "incident_type": "drone_activity",
+    "timestamp": "2025-05-16T21:13:41.797059Z",
+    "city": "Beirut",
+    "reported_by": "user_825@example.com"
+  },
+  {
+    "zone_id": "892da47595bffff",
+    "incident_type": "murder",
+    "timestamp": "2025-04-10T14:11:41.797059Z",
+    "city": "Beirut",
+    "reported_by": "+96176313548"
+  },
+  {
+    "zone_id": "892da474b07ffff",
+    "incident_type": "other",
+    "timestamp": "2024-12-06T12:56:41.797059Z",
+    "city": "Beirut",
+    "reported_by": "+96171741829"
+  },
+  {
+    "zone_id": "892da474b07ffff",
+    "incident_type": "theft",
+    "timestamp": "2025-03-03T23:58:41.797059Z",
+    "city": "Beirut",
+    "reported_by": "user_705@example.com"
+  },
+  {
+    "zone_id": "892da474b07ffff",
+    "incident_type": "shooting",
+    "timestamp": "2024-12-25T21:07:41.797059Z",
+    "city": "Beirut",
+    "reported_by": "+96172525842"
+  },
+  {
+    "zone_id": "892da474b07ffff",
+    "incident_type": "robbery",
+    "timestamp": "2025-07-27T02:02:41.797059Z",
+    "city": "Beirut",
+    "reported_by": "user_254@example.com"
+  },
+  {
+    "zone_id": "892da475947ffff",
+    "incident_type": "kidnapping",
+    "timestamp": "2024-11-08T00:29:41.797059Z",
+    "city": "Beirut",
+    "reported_by": "user_297@example.com"
+  },
+  {
+    "zone_id": "892da474867ffff",
+    "incident_type": "murder",
+    "timestamp": "2025-01-27T15:33:41.797059Z",
+    "city": "Beirut",
+    "reported_by": "+96178925899"
+  },
+  {
+    "zone_id": "892da474867ffff",
+    "incident_type": "vandalism",
+    "timestamp": "2025-06-25T22:02:41.797059Z",
+    "city": "Beirut",
+    "reported_by": "+96171174658"
+  },
+  {
+    "zone_id": "892da474867ffff",
+    "incident_type": "drone_activity",
+    "timestamp": "2025-04-29T17:47:41.797059Z",
+    "city": "Beirut",
+    "reported_by": "user_202@example.com"
+  },
+  {
+    "zone_id": "892da474a67ffff",
+    "incident_type": "other",
+    "timestamp": "2024-10-22T22:18:41.797059Z",
+    "city": "Beirut",
+    "reported_by": "+96172136549"
+  },
+  {
+    "zone_id": "892da474a67ffff",
+    "incident_type": "kidnapping",
+    "timestamp": "2024-09-11T22:36:41.797059Z",
+    "city": "Beirut",
+    "reported_by": "user_380@example.com"
+  },
+  {
+    "zone_id": "892da474a67ffff",
+    "incident_type": "explosion",
+    "timestamp": "2025-01-15T21:40:41.797059Z",
+    "city": "Beirut",
+    "reported_by": "+96175231653"
+  },
+  {
+    "zone_id": "892da474a67ffff",
+    "incident_type": "airstrike",
+    "timestamp": "2025-01-27T06:29:41.797059Z",
+    "city": "Beirut",
+    "reported_by": "+96178252659"
+  },
+  {
+    "zone_id": "892da474a8fffff",
+    "incident_type": "kidnapping",
+    "timestamp": "2025-05-25T20:02:41.797059Z",
+    "city": "Beirut",
+    "reported_by": "user_283@example.com"
+  },
+  {
+    "zone_id": "892da474a8fffff",
+    "incident_type": "vandalism",
+    "timestamp": "2025-07-20T21:41:41.797059Z",
+    "city": "Beirut",
+    "reported_by": "user_760@example.com"
+  },
+  {
+    "zone_id": "892da474b17ffff",
+    "incident_type": "harassment",
+    "timestamp": "2024-09-13T10:11:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "+96177757359"
+  },
+  {
+    "zone_id": "892da474b17ffff",
+    "incident_type": "explosion",
+    "timestamp": "2025-02-23T15:19:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "user_767@example.com"
+  },
+  {
+    "zone_id": "892da474b17ffff",
+    "incident_type": "harassment",
+    "timestamp": "2025-01-31T15:59:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "user_539@example.com"
+  },
+  {
+    "zone_id": "892da474b17ffff",
+    "incident_type": "theft",
+    "timestamp": "2025-05-21T00:02:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "+96174061535"
+  },
+  {
+    "zone_id": "892da474a0fffff",
+    "incident_type": "kidnapping",
+    "timestamp": "2025-04-17T20:26:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "+96177245147"
+  },
+  {
+    "zone_id": "892da474a0fffff",
+    "incident_type": "explosion",
+    "timestamp": "2025-07-28T05:45:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "+96177700207"
+  },
+  {
+    "zone_id": "892da474b57ffff",
+    "incident_type": "assault",
+    "timestamp": "2025-06-09T15:04:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "+96178387698"
+  },
+  {
+    "zone_id": "892da474b57ffff",
+    "incident_type": "theft",
+    "timestamp": "2025-08-31T08:43:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "+96172719012"
+  },
+  {
+    "zone_id": "892da474b57ffff",
+    "incident_type": "shooting",
+    "timestamp": "2025-07-10T07:35:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "user_436@example.com"
+  },
+  {
+    "zone_id": "892da474b57ffff",
+    "incident_type": "other",
+    "timestamp": "2025-01-23T08:03:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "user_785@example.com"
+  },
+  {
+    "zone_id": "892da475d3bffff",
+    "incident_type": "murder",
+    "timestamp": "2025-05-10T20:23:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "user_962@example.com"
+  },
+  {
+    "zone_id": "892da475d3bffff",
+    "incident_type": "vandalism",
+    "timestamp": "2025-03-24T07:59:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "user_461@example.com"
+  },
+  {
+    "zone_id": "892da475d3bffff",
+    "incident_type": "explosion",
+    "timestamp": "2024-11-02T21:07:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "+96173977356"
+  },
+  {
+    "zone_id": "892da475d3bffff",
+    "incident_type": "murder",
+    "timestamp": "2025-06-26T17:28:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "user_558@example.com"
+  },
+  {
+    "zone_id": "892da474a63ffff",
+    "incident_type": "shooting",
+    "timestamp": "2024-11-09T18:24:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "user_788@example.com"
+  },
+  {
+    "zone_id": "892da474ac7ffff",
+    "incident_type": "robbery",
+    "timestamp": "2025-03-17T08:21:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "+96179116613"
+  },
+  {
+    "zone_id": "892da474ac7ffff",
+    "incident_type": "other",
+    "timestamp": "2025-05-25T09:15:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "user_750@example.com"
+  },
+  {
+    "zone_id": "892da475837ffff",
+    "incident_type": "airstrike",
+    "timestamp": "2024-09-17T22:05:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "+96177224047"
+  },
+  {
+    "zone_id": "892da475837ffff",
+    "incident_type": "explosion",
+    "timestamp": "2025-01-05T18:43:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "user_762@example.com"
+  },
+  {
+    "zone_id": "892da475837ffff",
+    "incident_type": "explosion",
+    "timestamp": "2025-05-21T01:11:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "+96176853018"
+  },
+  {
+    "zone_id": "892da4664cbffff",
+    "incident_type": "harassment",
+    "timestamp": "2025-03-21T09:31:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "user_421@example.com"
+  },
+  {
+    "zone_id": "892da4664cbffff",
+    "incident_type": "airstrike",
+    "timestamp": "2025-06-10T10:57:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "+96174229193"
+  },
+  {
+    "zone_id": "892da4664cbffff",
+    "incident_type": "theft",
+    "timestamp": "2024-11-14T22:00:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "+96175518301"
+  },
+  {
+    "zone_id": "892da4664cbffff",
+    "incident_type": "vandalism",
+    "timestamp": "2025-06-23T14:26:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "user_456@example.com"
+  },
+  {
+    "zone_id": "892da4759b3ffff",
+    "incident_type": "assault",
+    "timestamp": "2025-06-19T14:45:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "+96174893002"
+  },
+  {
+    "zone_id": "892da4759b3ffff",
+    "incident_type": "vandalism",
+    "timestamp": "2024-12-20T08:39:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "user_977@example.com"
+  },
+  {
+    "zone_id": "892da4759b3ffff",
+    "incident_type": "murder",
+    "timestamp": "2024-10-30T22:25:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "user_964@example.com"
+  },
+  {
+    "zone_id": "892da474a3bffff",
+    "incident_type": "vandalism",
+    "timestamp": "2025-07-21T21:24:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "+96171425282"
+  },
+  {
+    "zone_id": "892da474a3bffff",
+    "incident_type": "other",
+    "timestamp": "2024-09-22T15:47:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "user_343@example.com"
+  },
+  {
+    "zone_id": "892da475da7ffff",
+    "incident_type": "assault",
+    "timestamp": "2024-11-13T09:17:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "+96172257768"
+  },
+  {
+    "zone_id": "892da475da7ffff",
+    "incident_type": "assault",
+    "timestamp": "2025-08-25T03:11:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "+96175877708"
+  },
+  {
+    "zone_id": "892da475da7ffff",
+    "incident_type": "other",
+    "timestamp": "2025-01-10T02:29:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "user_394@example.com"
+  },
+  {
+    "zone_id": "892da47486fffff",
+    "incident_type": "robbery",
+    "timestamp": "2024-12-25T14:23:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "user_271@example.com"
+  },
+  {
+    "zone_id": "892da47486fffff",
+    "incident_type": "murder",
+    "timestamp": "2024-12-31T01:27:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "+96175886433"
+  },
+  {
+    "zone_id": "892da47486fffff",
+    "incident_type": "theft",
+    "timestamp": "2025-02-19T05:28:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "user_750@example.com"
+  },
+  {
+    "zone_id": "892da47486fffff",
+    "incident_type": "kidnapping",
+    "timestamp": "2024-10-14T09:27:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "+96176763168"
+  },
+  {
+    "zone_id": "892da474b0fffff",
+    "incident_type": "airstrike",
+    "timestamp": "2024-11-11T10:07:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "user_393@example.com"
+  },
+  {
+    "zone_id": "892da474b0fffff",
+    "incident_type": "assault",
+    "timestamp": "2025-01-17T16:40:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "user_669@example.com"
+  },
+  {
+    "zone_id": "892da474b5bffff",
+    "incident_type": "drone_activity",
+    "timestamp": "2025-07-18T01:08:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "user_703@example.com"
+  },
+  {
+    "zone_id": "892da474b5bffff",
+    "incident_type": "theft",
+    "timestamp": "2024-09-30T08:46:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "user_696@example.com"
+  },
+  {
+    "zone_id": "892da474b5bffff",
+    "incident_type": "other",
+    "timestamp": "2024-12-17T20:00:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "user_436@example.com"
+  },
+  {
+    "zone_id": "892da474b5bffff",
+    "incident_type": "assault",
+    "timestamp": "2025-06-14T15:22:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "+96173359264"
+  },
+  {
+    "zone_id": "892da474a1bffff",
+    "incident_type": "harassment",
+    "timestamp": "2025-08-30T23:07:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "user_398@example.com"
+  },
+  {
+    "zone_id": "892da474a1bffff",
+    "incident_type": "airstrike",
+    "timestamp": "2024-09-24T02:23:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "user_439@example.com"
+  },
+  {
+    "zone_id": "892da474a1bffff",
+    "incident_type": "assault",
+    "timestamp": "2025-06-22T13:30:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "+96178857394"
+  },
+  {
+    "zone_id": "892da474a1bffff",
+    "incident_type": "assault",
+    "timestamp": "2025-06-21T18:34:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "user_160@example.com"
+  },
+  {
+    "zone_id": "892da47593bffff",
+    "incident_type": "kidnapping",
+    "timestamp": "2024-11-05T18:47:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "+96176746347"
+  },
+  {
+    "zone_id": "892da47593bffff",
+    "incident_type": "murder",
+    "timestamp": "2025-07-20T11:06:41.798154Z",
+    "city": "Beirut",
+    "reported_by": "+96175787581"
+  }
+]
