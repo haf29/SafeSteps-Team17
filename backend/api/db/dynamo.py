@@ -157,6 +157,7 @@ def update_zone_severity(zone_id: str, severity: float, updated_at_iso: str) -> 
             ":u": updated_at_iso
         }
     )
+    add_severity_record(zone_id, severity, updated_by="zones_table_update")
 
 def get_zone_by_id(zone_id: str) -> Optional[Dict[str, Any]]:
     """Return the full Zone item or None."""

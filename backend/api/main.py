@@ -5,6 +5,8 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import RedirectResponse
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 
 app = FastAPI(
     title="SafeSteps API",
@@ -34,25 +36,18 @@ app.add_middleware(
 # ---------------- Include routers ----------------
 # /user -> signup, confirm, resend-code, login
 from routes.user import router as user_router
+from routes.incident import router as incident_router
+from routes.zones import router as zones_router
+from routes.zones_ml import router as zones_ml_router
 
 app.include_router(user_router)
+app.include_router(incident_router)
+app.include_router(zones_router)
+app.include_router(zones_ml_router)
 
 # /report_incident (and any incident-related routes)
-try:
-    from routes.incident import router as incident_router
 
-    app.include_router(incident_router)
-except Exception:
-    # If the incident router isn’t present yet, ignore in dev.
-    pass
 
-# Optional: zones router if you have it
-try:
-    from routes.zones import router as zones_router
-
-    app.include_router(zones_router)
-except Exception:
-    pass
 
 
 # ---------------- Meta/utility endpoints ----------------
