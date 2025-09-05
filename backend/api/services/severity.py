@@ -111,7 +111,7 @@ def categorize_score(score: float) -> str:
         return "#00FF00"
     elif score < 2:
         return "#FFFF00"
-    return "#FF000"
+    return "#FF0000"
 
 def find_nearest_safe_hex(
     origin_hex: str,

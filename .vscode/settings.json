@@ -4,7 +4,7 @@
       "cacheUrl": "https://vscode.blob.core.windows.net/gallery/index",
       "itemUrl": "https://marketplace.visualstudio.com/items"
     },
-    "python.languageServer": "Pylance",
+    "python.languageServer": "None",
   "python.analysis.typeCheckingMode": "basic"
   }
   
