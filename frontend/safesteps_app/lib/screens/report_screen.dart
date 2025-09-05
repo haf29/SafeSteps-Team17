@@ -158,7 +158,7 @@ class _ReportScreenState extends State<ReportScreen> {
             children: [
               const Text("Incident Type", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               DropdownButtonFormField<String>(
-                value: _selectedType,
+                initialValue: _selectedType,
                 items: incidentTypes
                     .map((t) => DropdownMenuItem(value: t, child: Text(t[0].toUpperCase() + t.substring(1))))
                     .toList(),
