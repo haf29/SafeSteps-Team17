@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import RedirectResponse
 
+
 log = logging.getLogger("uvicorn.error")
 
 # --- Load .env early so os.getenv works everywhere ---
@@ -66,6 +67,14 @@ try:
     app.include_router(incident_router, prefix=_API_PREFIX)
 except Exception as e:
     log.exception("Failed to include incident router: %s", e)
+
+try:
+    from routes.zones_ml import router as ml_router
+    app.include_router(ml_router, prefix=_API_PREFIX)
+except Exception as e:
+    log.exception("Failed to include ml router: %s", e)
+
+
 
 try:
     from routes.zones import router as zones_router
