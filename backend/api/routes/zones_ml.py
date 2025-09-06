@@ -1,100 +1,89 @@
+# zones_ml.py
 from __future__ import annotations
-from fastapi import APIRouter, HTTPException
-from services.ml_db_service import add_training_record, get_training_history, add_ml_prediction
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
+from typing import Optional, Any, List, Dict
+
+import boto3
+from botocore.exceptions import ClientError
+from boto3.dynamodb.conditions import Key
+
+from services.ml_db_service import add_training_record, get_training_history, add_ml_prediction
 from ml_model import predict_zone  # your prediction function
 
 router = APIRouter(tags=["zonesML"])
 
+# ---------- Accept both str and int for zone_id ----------
 class ZonePredictionRequest(BaseModel):
-    zone_id: int
-    n_days: int = 1  # default next day
+    zone_id: Any   # allow str or int; we normalize below
+    n_days: int = 1
 
+def _as_int_if_possible(value: Any) -> Optional[int]:
+    try:
+        return int(value)
+    except Exception:
+        return None
+
+# ---------- Dynamo setup ----------
+dynamodb = boto3.resource("dynamodb", region_name="eu-north-1")
+zones_ml_table = dynamodb.Table("ZonesML")
+
+# ---------- Training APIs (unchanged) ----------
 @router.post("/zonesml/training/{zone_id}/{severity}")
 def add_training_data(zone_id: str, severity: float):
-    """Add training data to ZonesHistory"""
     try:
         success = add_training_record(zone_id, severity)
         if success:
             return {"status": "success", "message": "Training data added"}
-        else:
-            raise HTTPException(status_code=500, detail="Failed to add training data")
+        raise HTTPException(status_code=500, detail="Failed to add training data")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/zonesml/training/{zone_id}")
 def get_training_data(zone_id: str):
-    """Get training data for a zone"""
     try:
         history = get_training_history(zone_id)
-        return {
-            "zone_id": zone_id,
-            "records": len(history),
-            "data": history
-        }
+        return {"zone_id": zone_id, "records": len(history), "data": history}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
-
+# ---------- Prediction (accept both str/int) ----------
 @router.post("/predict-zone")
 def predict_zone_endpoint(req: ZonePredictionRequest):
     try:
-        pred = predict_zone(req.zone_id, n=req.n_days)
+        # If your model expects int, convert when possible.
+        zid_int = _as_int_if_possible(req.zone_id)
+        zid_for_model = zid_int if zid_int is not None else req.zone_id
+        pred = predict_zone(zid_for_model, n=req.n_days)
         if pred is None:
             raise HTTPException(status_code=404, detail="Not enough data to predict")
-        return {
-            "zone_id": req.zone_id,
-            "horizon_days": req.n_days,
-            "predicted_severity": pred
-        }
+        return {"zone_id": req.zone_id, "horizon_days": req.n_days, "predicted_severity": pred}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
-from fastapi import APIRouter, HTTPException, Query
-import boto3
-from typing import List, Dict, Any
-
-# DynamoDB client
-dynamodb = boto3.resource('dynamodb', region_name='eu-north-1')
-zones_ml_table = dynamodb.Table('ZonesML')
-
+# ---------- Read APIs ----------
 @router.get("/zonesml/all")
 def get_all_zones_ml(
     limit: int = Query(100, description="Maximum number of records to return"),
-    latest_only: bool = Query(True, description="Return only latest prediction per zone")
+    latest_only: bool = Query(True, description="Return only latest prediction per zone"),
 ):
     """
-    Get all zones data from ZonesML table with severities, boundaries, and coordinates
+    Return ZonesML items; if latest_only=True, keep only the newest per zone.
     """
     try:
-        if latest_only:
-            # Get latest prediction for each zone
-            zones_data = {}
-            
-            # Scan all items
-            response = zones_ml_table.scan(Limit=limit)
-            items = response.get('Items', [])
-            
-            # Keep only the latest record for each zone
-            for item in items:
-                zone_id = item['zone_id']
-                if zone_id not in zones_data:
-                    zones_data[zone_id] = item
-                else:
-                    # Compare timestamps and keep the latest
-                    current_time = zones_data[zone_id]['timestamp']
-                    new_time = item['timestamp']
-                    if new_time > current_time:
-                        zones_data[zone_id] = item
-            
-            return list(zones_data.values())
-        else:
-            # Return all records
-            response = zones_ml_table.scan(Limit=limit)
-            return response.get('Items', [])
-            
+        response = zones_ml_table.scan(Limit=limit)
+        items = response.get("Items", [])
+
+        if not latest_only:
+            return items
+
+        zones_latest: Dict[Any, Dict[str, Any]] = {}
+        for it in items:
+            zid = it["zone_id"]
+            prev = zones_latest.get(zid)
+            if prev is None or it.get("timestamp", "") > prev.get("timestamp", ""):
+                zones_latest[zid] = it
+        return list(zones_latest.values())
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -102,111 +91,87 @@ def get_all_zones_ml(
 def get_zone_ml(
     zone_id: str,
     limit: int = Query(100, description="Maximum number of records to return"),
-    latest_only: bool = Query(True, description="Return only latest prediction")
+    latest_only: bool = Query(True, description="Return only latest prediction"),
 ):
     """
-    Get ZoneML data for a specific zone with severity, boundary, and coordinates
+    Query by zone_id, trying numeric first (if it looks numeric), then string.
+    This avoids 'Condition parameter type does not match schema type'.
     """
     try:
-        if latest_only:
-            # Get the most recent prediction for this zone
-            response = zones_ml_table.query(
-                KeyConditionExpression="zone_id = :zid",
-                ExpressionAttributeValues={":zid": zone_id},
-                ScanIndexForward=False,  # Most recent first
-                Limit=1
+        def _query(val):
+            return zones_ml_table.query(
+                KeyConditionExpression=Key("zone_id").eq(val),
+                ScanIndexForward=False,
+                Limit=1 if latest_only else limit,
             )
-            items = response.get('Items', [])
-            return items[0] if items else None
-            
-        else:
-            # Get all predictions for this zone
-            response = zones_ml_table.query(
-                KeyConditionExpression="zone_id = :zid",
-                ExpressionAttributeValues={":zid": zone_id},
-                ScanIndexForward=False,  # Most recent first
-                Limit=limit
-            )
-            return response.get('Items', [])
-            
+
+        # Try numeric first when possible
+        tried = []
+        zid_int = _as_int_if_possible(zone_id)
+        if zid_int is not None:
+            tried.append("int")
+            resp = _query(zid_int)
+            items = resp.get("Items", [])
+            if items:
+                return items[0] if latest_only else items
+
+        # Fallback to string
+        tried.append("str")
+        resp = _query(zone_id)
+        items = resp.get("Items", [])
+        return (items[0] if latest_only else items) if items else (None if latest_only else [])
+
+    except ClientError as e:
+        raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/zonesml/geojson")
-def get_zones_ml_geojson(
-    latest_only: bool = Query(True, description="Return only latest predictions")
-):
-    """
-    Get ZonesML data as GeoJSON format for mapping
-    """
+def get_zones_ml_geojson(latest_only: bool = Query(True)):
     try:
-        # Get all zones data
         zones_data = get_all_zones_ml(latest_only=latest_only)
-        
-        # Convert to GeoJSON format
-        geojson = {
-            "type": "FeatureCollection",
-            "features": []
-        }
-        
-        for zone in zones_data:
-            feature = {
+        fc = {"type": "FeatureCollection", "features": []}
+        for z in zones_data:
+            fc["features"].append({
                 "type": "Feature",
                 "properties": {
-                    "zone_id": zone['zone_id'],
-                    "severity": float(zone['severity']),
-                    "city": zone.get('city', ''),
-                    "area": zone.get('area', ''),
-                    "risk_category": zone.get('risk_category', ''),
-                    "resolution": zone.get('resolution', 9),
-                    "prediction_time": zone['timestamp'],
-                    "is_prediction": zone.get('is_prediction', False)
+                    "zone_id": z["zone_id"],
+                    "severity": float(z["severity"]),
+                    "city": z.get("city", ""),
+                    "area": z.get("area", ""),
+                    "risk_category": z.get("risk_category", ""),
+                    "resolution": z.get("resolution", 9),
+                    "prediction_time": z["timestamp"],
+                    "is_prediction": z.get("is_prediction", False),
                 },
-                "geometry": {
-                    "type": "Polygon",
-                    "coordinates": [zone['boundary']]
-                }
-            }
-            geojson['features'].append(feature)
-        
-        return geojson
-        
+                "geometry": {"type": "Polygon", "coordinates": [z["boundary"]]},
+            })
+        return fc
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/zonesml/geojson/{zone_id}")
 def get_zone_ml_geojson(zone_id: str):
-    """
-    Get GeoJSON for a specific zone from ZonesML
-    """
     try:
-        zone_data = get_zone_ml(zone_id, latest_only=True)
-        
-        if not zone_data:
+        z = get_zone_ml(zone_id, latest_only=True)
+        if not z:
             raise HTTPException(status_code=404, detail="Zone not found")
-        
-        geojson = {
+        return {
             "type": "FeatureCollection",
             "features": [{
                 "type": "Feature",
                 "properties": {
-                    "zone_id": zone_data['zone_id'],
-                    "severity": float(zone_data['severity']),
-                    "city": zone_data.get('city', ''),
-                    "area": zone_data.get('area', ''),
-                    "risk_category": zone_data.get('risk_category', ''),
-                    "resolution": zone_data.get('resolution', 9),
-                    "prediction_time": zone_data['timestamp'],
-                    "is_prediction": zone_data.get('is_prediction', False)
+                    "zone_id": z["zone_id"],
+                    "severity": float(z["severity"]),
+                    "city": z.get("city", ""),
+                    "area": z.get("area", ""),
+                    "risk_category": z.get("risk_category", ""),
+                    "resolution": z.get("resolution", 9),
+                    "prediction_time": z["timestamp"],
+                    "is_prediction": z.get("is_prediction", False),
                 },
-                "geometry": {
-                    "type": "Polygon",
-                    "coordinates": [zone_data['boundary']]
-                }
-            }]
+                "geometry": {"type": "Polygon", "coordinates": [z["boundary"]]},
+            }],
         }
-        
-        return geojson
-        
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

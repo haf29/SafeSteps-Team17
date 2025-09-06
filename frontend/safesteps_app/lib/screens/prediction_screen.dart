@@ -60,7 +60,7 @@ class _PredictionScreenState extends State<PredictionScreen> {
       final List<HexZone> newZones = [];
 
       for (var z in data) {
-        final zoneId = z['zone_id'].toString(); // ensure string
+        final zoneId = z['zone_id'].toString(); // keep as string
         final severity = (z['severity'] as num).toDouble();
         final boundaryRaw = z['boundary'];
         final points = _parseBoundary(boundaryRaw)
@@ -167,20 +167,24 @@ class _PredictionScreenState extends State<PredictionScreen> {
       final res = await http.post(
         url,
         headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"zone_id": int.parse(zoneId), "n_days": nDays}), // send string
+        // IMPORTANT: send zone_id exactly as string; backend handles str/int.
+        body: jsonEncode({"zone_id": zoneId, "n_days": nDays}),
       );
 
       if (res.statusCode == 200) {
         await fetchZones();
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Prediction successful! Map updated.")),
         );
       } else {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Prediction failed: ${res.body}")),
+          SnackBar(content: Text("Prediction failed (${res.statusCode}): ${res.body}")),
         );
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Error: $e")),
       );
@@ -191,11 +195,7 @@ class _PredictionScreenState extends State<PredictionScreen> {
   Widget _buildLegendItem(Color color, String label) {
     return Row(
       children: [
-        Container(
-          width: 20,
-          height: 20,
-          color: color,
-        ),
+        Container(width: 20, height: 20, color: color),
         const SizedBox(width: 6),
         Text(label),
       ],
@@ -216,8 +216,8 @@ class _PredictionScreenState extends State<PredictionScreen> {
                       options: MapOptions(
                         initialCenter: zones.isNotEmpty
                             ? zones[0].points[0]
-                            : LatLng(37.7749, -122.4194),
-                        initialZoom: 12,
+                            : const LatLng(33.8938, 35.5018), // Beirut fallback
+                        initialZoom: 13,
                         onTap: (tapPos, latLng) {
                           for (var zone in zones) {
                             if (_pointInPolygon(latLng, zone.points)) {
@@ -229,16 +229,14 @@ class _PredictionScreenState extends State<PredictionScreen> {
                       ),
                       children: [
                         TileLayer(
-                          urlTemplate:
-                              "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-                          userAgentPackageName: "com.example.app",
+                          urlTemplate: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                          userAgentPackageName: "com.safesteps.app",
                         ),
                         PolygonLayer(
                           polygons: zones
                               .map((z) => Polygon(
                                     points: z.points,
-                                    color:
-                                        severityToColor(z.severity).withOpacity(0.5),
+                                    color: severityToColor(z.severity).withOpacity(0.5),
                                     borderColor: Colors.black,
                                     borderStrokeWidth: 1.0,
                                   ))
@@ -246,8 +244,6 @@ class _PredictionScreenState extends State<PredictionScreen> {
                         ),
                       ],
                     ),
-
-                    // Bottom-left legend
                     Positioned(
                       bottom: 16,
                       left: 16,
@@ -276,8 +272,6 @@ class _PredictionScreenState extends State<PredictionScreen> {
                         ),
                       ),
                     ),
-
-                    // Top info message
                     Positioned(
                       top: 0,
                       left: 0,
@@ -287,7 +281,7 @@ class _PredictionScreenState extends State<PredictionScreen> {
                         padding: const EdgeInsets.all(12),
                         color: Colors.blue.shade100,
                         child: const Text(
-                          "ℹ️ Tap on a hexagon to predict severity colors for future days.",
+                          "Tap on a hexagon to predict severity colors for future days.",
                           style: TextStyle(fontSize: 16),
                           textAlign: TextAlign.center,
                         ),
