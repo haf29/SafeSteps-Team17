@@ -14,7 +14,7 @@ class _ReportScreenState extends State<ReportScreen> {
   final _formKey = GlobalKey<FormState>();
 
   // Must match backend allowed values (lowercase)
-  final List<String> incidentTypes = ["theft", "assault", "murder", "harassment"];
+  final List<String> incidentTypes = ["theft", "assault", "murder", "harassment" ,"drone_activity", "airstrike", "explosion", "shooting", "kidnapping"];
 
   String? _selectedType;
   DateTime? _selectedDateTime;
@@ -158,7 +158,7 @@ class _ReportScreenState extends State<ReportScreen> {
             children: [
               const Text("Incident Type", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               DropdownButtonFormField<String>(
-                initialValue: _selectedType,
+                value: _selectedType,
                 items: incidentTypes
                     .map((t) => DropdownMenuItem(value: t, child: Text(t[0].toUpperCase() + t.substring(1))))
                     .toList(),

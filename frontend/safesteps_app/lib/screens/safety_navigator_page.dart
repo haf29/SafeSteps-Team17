@@ -958,7 +958,7 @@ Future<List<gmaps.LatLng>> _directionsPolyline(LatLng a, LatLng b) async {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   DropdownButtonFormField<String>(
-                    initialValue: mode,
+                    value: mode,
                     decoration: const InputDecoration(labelText: 'Mode'),
                     items: const [
                       DropdownMenuItem(value: 'walking', child: Text('Walking')),
@@ -1118,7 +1118,7 @@ Future<List<gmaps.LatLng>> _directionsPolyline(LatLng a, LatLng b) async {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   DropdownButtonFormField<String>(
-                    initialValue: mode,
+                    value: mode,
                     decoration: const InputDecoration(labelText: 'Mode'),
                     items: const [
                       DropdownMenuItem(value: 'walking', child: Text('Walking')),

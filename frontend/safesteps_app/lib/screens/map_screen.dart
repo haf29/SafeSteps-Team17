@@ -216,6 +216,17 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     _safeMove(cam.center, cam.zoom - 1);
   }
 
+    /// Helper widget for legend
+  Widget _buildLegendItem(Color color, String label) {
+    return Row(
+      children: [
+        Container(width: 20, height: 20, color: color),
+        const SizedBox(width: 6),
+        Text(label),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final center = _currentPosition != null
@@ -299,6 +310,34 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                     child: const Icon(Icons.my_location),
                   ),
                 ),
+                Positioned(
+                      bottom: 16,
+                      left: 16,
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.9),
+                          borderRadius: BorderRadius.circular(8),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 4,
+                              offset: const Offset(2, 2),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildLegendItem(Colors.green, "Low"),
+                            const SizedBox(height: 4),
+                            _buildLegendItem(Colors.yellow, "Medium"),
+                            const SizedBox(height: 4),
+                            _buildLegendItem(Colors.red, "High"),
+                          ],
+                        ),
+                      ),
+                    ),
               ],
             );
           },
