@@ -630,14 +630,14 @@ Future<List<gmaps.LatLng>> _directionsPolyline(LatLng a, LatLng b) async {
 
   bool drew = false;
 
-  // 1) Backend polyline if present
+  // 1) If backend provided an encoded polyline, draw it
   if (chosen.encodedPolyline != null) {
     final gpts = decodePolyline(chosen.encodedPolyline!)
         .map((p) => gmaps.LatLng(p.lat, p.lng))
         .toList();
     if (gpts.length >= 2) {
       _polylines.add(gmaps.Polyline(
-        polylineId: const gmaps.PolylineId('exit'),
+        polylineId: const gmaps.PolylineId('exit_backend'),
         points: gpts,
         width: 6,
         color: Colors.blue,
@@ -651,29 +651,28 @@ Future<List<gmaps.LatLng>> _directionsPolyline(LatLng a, LatLng b) async {
     }
   }
 
-  // 2) Directions fallback if backend didn’t return a polyline
-  if (!drew) {
-    final gpts = await _directionsPolyline(
-      _position,
-      LatLng(lat: res.safeTarget.lat, lng: res.safeTarget.lng),
-    );
-    if (gpts.length >= 2) {
-      _polylines.add(gmaps.Polyline(
-        polylineId: const gmaps.PolylineId('exit_fallback'),
-        points: gpts,
-        width: 6,
-        color: Colors.blue,
-        geodesic: true,
-        startCap: gmaps.Cap.roundCap,
-        endCap: gmaps.Cap.roundCap,
-        jointType: gmaps.JointType.round,
-      ));
-      _map?.animateCamera(gmaps.CameraUpdate.newLatLngBounds(_bounds(gpts), 40));
-      drew = true;
-    }
+  // 2) Always try Google Directions for a street path (preferred)
+  final gpts = await _directionsPolyline(
+    _position,
+    LatLng(lat: res.safeTarget.lat, lng: res.safeTarget.lng),
+  );
+  if (gpts.length >= 2) {
+    _polylines.removeWhere((pl) => true); // keep only the best one
+    _polylines.add(gmaps.Polyline(
+      polylineId: const gmaps.PolylineId('exit_directions'),
+      points: gpts,
+      width: 6,
+      color: Colors.blue,
+      geodesic: true,
+      startCap: gmaps.Cap.roundCap,
+      endCap: gmaps.Cap.roundCap,
+      jointType: gmaps.JointType.round,
+    ));
+    _map?.animateCamera(gmaps.CameraUpdate.newLatLngBounds(_bounds(gpts), 40));
+    drew = true;
   }
 
-  // 3) Straight dashed line as last resort
+  // 3) Last resort: straight dashed line
   if (!drew) {
     final a = gmaps.LatLng(_position.lat, _position.lng);
     final b = gmaps.LatLng(res.safeTarget.lat, res.safeTarget.lng);
@@ -717,14 +716,14 @@ Future<List<gmaps.LatLng>> _directionsPolyline(LatLng a, LatLng b) async {
 
   // ====== map widget ======
   bool get _usePlaceholder => kIsWeb && !_WEB_MAPS_ENABLED;
-
-  void _onSafetyPressed() {
-    if (_tab.index == 0) {
-      _openSafeSuggestionsAround(_origin); // suggest safe places for planning
-    } else {
-      _openSafeSuggestionsAround(_position); // for exit tab too
+    void _onSafetyPressed() {
+      if (_tab.index == 0) {
+        _openSafeSuggestionsAround(_origin);    // Planning tab unchanged
+      } else {
+        _exitToSafety();                         // Exit tab: run backend now
+      }
     }
-  }
+
 
   Widget _mapWidget() {
     if (_usePlaceholder) {
@@ -1045,6 +1044,21 @@ Future<List<gmaps.LatLng>> _directionsPolyline(LatLng a, LatLng b) async {
                 label: const Text('Search city / place'),
                 onPressed: () => _openSearchSheet(PickTarget.position),
               ),
+              // REPLACE the existing button in _exitTab() with this:
+         // put a comma after the previous widget in the list, then:
+              FilledButton(
+                onPressed: exitBusy ? null : _exitToSafety,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.safety_check),
+                    const SizedBox(width: 8),
+                    Text(exitBusy ? 'Finding safest…' : 'Exit to safety now'),
+                  ],
+                ),
+              ),
+
+
               FilledButton.icon(
                 icon: const Icon(Icons.my_location),
                 label: const Text('Use my location'),
@@ -1368,71 +1382,151 @@ Future<List<gmaps.LatLng>> _directionsPolyline(LatLng a, LatLng b) async {
     return R * c;
   }
 
-  Future<List<_Poi>> _safePOIs(LatLng base) async {
-    // Prefer Google Nearby Search when key is present
-    if (_GMAPS_KEY.isNotEmpty) {
-      final types = <String>[
-        'police','hospital','university','shopping_mall','embassy','fire_station'
-      ];
-      final Map<String, _Poi> seen = {};
-      for (final t in types) {
-        try {
-          final uri = Uri.parse(
-            'https://maps.googleapis.com/maps/api/place/nearbysearch/json'
-            '?location=${base.lat},${base.lng}&radius=5000&type=$t&key=$_GMAPS_KEY',
-          );
-          final res = await http.get(uri).timeout(const Duration(seconds: 10));
-          if (res.statusCode != 200) continue;
-          final json = jsonDecode(res.body);
-          final results = (json['results'] as List?) ?? const [];
-          for (final r in results) {
-            final pid = r['place_id'] as String?;
-            final name = (r['name'] as String?) ?? t;
-            final loc = r['geometry']?['location'];
-            if (loc == null) continue;
-            final lat = (loc['lat'] as num).toDouble();
-            final lng = (loc['lng'] as num).toDouble();
-            if (!_inLebanon(lat, lng)) continue;
-            final d = _haversine(base.lat, base.lng, lat, lng);
-            final addr = (r['vicinity'] as String?) ?? '';
-            final key = pid ?? '$lat,$lng';
-            if (!seen.containsKey(key) || d < seen[key]!.distanceM) {
-              seen[key] = _Poi(
-                name: name,
-                placeId: pid,
-                loc: LatLng(lat: lat, lng: lng),
-                secondary: addr.isEmpty ? t : addr,
-                distanceM: d,
-              );
-            }
-          }
-        } catch (_) { /* keep trying other types */ }
-      }
-      final list = seen.values.toList()
-        ..sort((a, b) => a.distanceM.compareTo(b.distanceM));
-      return list.take(12).toList();
-    }
+Future<List<_Poi>> _safePOIs(LatLng base) async {
+  const int searchRadiusM = 8000;      // 8 km
+  const double minUsefulMeters = 25;   // don't suggest “here”
 
-    // No Google key → modest OSM fallback: just return the base as one option
-    return [
-      _Poi(
-        name: 'Nearest safe (suggested)',
-        placeId: null,
-        loc: base,
-        secondary: 'Your current area',
-        distanceM: 0,
-      )
+  // ===== 1) Google Places Nearby (if key available) =====
+  if (_GMAPS_KEY.isNotEmpty) {
+    final types = <String>[
+      // keep the "safest first"; we’ll query all then dedupe by nearest
+      'police', 'hospital', 'embassy', 'fire_station', 'university', 'shopping_mall'
     ];
+    final Map<String, _Poi> seen = {};
+    for (final t in types) {
+      try {
+        final uri = Uri.parse(
+          'https://maps.googleapis.com/maps/api/place/nearbysearch/json'
+          '?location=${base.lat},${base.lng}'
+          '&radius=$searchRadiusM'
+          '&type=$t'
+          '&key=$_GMAPS_KEY'
+        );
+        final res = await http.get(uri).timeout(const Duration(seconds: 12));
+        if (res.statusCode != 200) continue;
+        final map = jsonDecode(res.body) as Map<String, dynamic>;
+        final results = (map['results'] as List?) ?? const [];
+        for (final r in results) {
+          final pid  = r['place_id'] as String?;
+          final name = (r['name'] as String?) ?? t;
+          final loc  = r['geometry']?['location'];
+          if (loc == null) continue;
+          final lat = (loc['lat'] as num).toDouble();
+          final lng = (loc['lng'] as num).toDouble();
+          final d   = _haversine(base.lat, base.lng, lat, lng);
+          if (d < minUsefulMeters) continue;
+
+          final addr = (r['vicinity'] as String?) ?? '';
+          if (!_inLebanon(lat, lng)) continue;
+
+          final key = pid ?? '$lat,$lng';
+          if (!seen.containsKey(key) || d < seen[key]!.distanceM) {
+            seen[key] = _Poi(
+              name: name,
+              placeId: pid,
+              loc: LatLng(lat: lat, lng: lng),
+              secondary: addr.isEmpty ? t : addr,
+              distanceM: d,
+            );
+          }
+        }
+      } catch (_) { /* try next type */ }
+    }
+    final list = seen.values.toList()..sort((a, b) => a.distanceM.compareTo(b.distanceM));
+    if (list.isNotEmpty) return list.take(12).toList();
   }
+
+  // ===== 2) OSM Overpass fallback (no key required) =====
+  // We search for key amenities within a radius around the base point.
+  try {
+    // Overpass API query: nodes/ways/relations with the given amenities inside a circle
+    final amenities = [
+      'police','hospital','fire_station','embassy','university',
+      'clinic','doctors','pharmacy','townhall','shelter'
+    ];
+    final amenityFilter = amenities.map((a) => 'node["amenity"="$a"](around:$searchRadiusM,${base.lat},${base.lng});'
+                                             'way["amenity"="$a"](around:$searchRadiusM,${base.lat},${base.lng});'
+                                             'relation["amenity"="$a"](around:$searchRadiusM,${base.lat},${base.lng});').join('');
+
+    final overpassQL = '[out:json][timeout:25];(' + amenityFilter + ');out center 100;'; // out with center for ways/relations
+
+    final uri = Uri.parse('https://overpass-api.de/api/interpreter');
+    final res = await http.post(
+      uri,
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        'User-Agent': 'safesteps-app'
+      },
+      body: 'data=${Uri.encodeComponent(overpassQL)}',
+    ).timeout(const Duration(seconds: 20));
+
+    if (res.statusCode == 200) {
+      final j = jsonDecode(res.body) as Map<String, dynamic>;
+      final elements = (j['elements'] as List?) ?? const [];
+      final Map<String, _Poi> seen = {};
+
+      for (final e in elements) {
+        double? lat, lng;
+        if (e['type'] == 'node') {
+          lat = (e['lat'] as num?)?.toDouble();
+          lng = (e['lon'] as num?)?.toDouble();
+        } else if (e['type'] == 'way' || e['type'] == 'relation') {
+          // when we request "out center", Overpass gives a "center": {lat,lon}
+          final center = e['center'];
+          lat = (center?['lat'] as num?)?.toDouble();
+          lng = (center?['lon'] as num?)?.toDouble();
+        }
+        if (lat == null || lng == null) continue;
+        if (!_inLebanon(lat, lng)) continue;
+
+        final tags = (e['tags'] as Map?) ?? const {};
+        final name = (tags['name'] as String?) ??
+                     (tags['amenity'] as String?) ??
+                     'Safe place';
+        final secondary = [
+          if (tags['amenity'] is String) tags['amenity'],
+          if (tags['addr:street'] is String) tags['addr:street'],
+          if (tags['addr:city'] is String) tags['addr:city'],
+        ].whereType<String>().where((s) => s.trim().isNotEmpty).join(' • ');
+
+        final d = _haversine(base.lat, base.lng, lat, lng);
+        if (d < minUsefulMeters) continue;
+
+        // Dedup by coordinate; prefer nearest
+        final key = '$lat,$lng';
+        if (!seen.containsKey(key) || d < seen[key]!.distanceM) {
+          seen[key] = _Poi(
+            name: name,
+            placeId: null,
+            loc: LatLng(lat: lat, lng: lng),
+            secondary: secondary.isEmpty ? 'OSM' : secondary,
+            distanceM: d,
+          );
+        }
+      }
+
+      final list = seen.values.toList()..sort((a, b) => a.distanceM.compareTo(b.distanceM));
+      if (list.isNotEmpty) return list.take(12).toList();
+    }
+  } catch (_) { /* ignore */ }
+
+  // If both sources fail → no suggestions (the UI will show a message)
+  return const <_Poi>[];
+}
+
+
+
 
   Future<void> _openSafeSuggestionsAround(LatLng base) async {
     final ctx = context;
     final items = await _safePOIs(base);
-    if (items.isEmpty) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('No nearby suggestions')));
-      return;
-    }
+   if (items.isEmpty) {
+  if (!mounted) return;
+  ScaffoldMessenger.of(ctx).showSnackBar(
+    const SnackBar(content: Text('No nearby safe places found. Try “Exit to safety now”.')),
+  );
+  return;
+}
 
     final chosen = await showModalBottomSheet<_Poi>(
       context: ctx,
