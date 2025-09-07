@@ -7,55 +7,237 @@ import 'package:http/http.dart' as http;
 //   API_PREFIX:     /api  (leave empty if your FastAPI has no prefix)
 // Example (PowerShell):
 // flutter run -d chrome --dart-define=API_BASE_URL=http://127.0.0.1:8000 --dart-define=API_PREFIX= --dart-define=WEB_MAPS_ENABLED=true
-const  String API_BASE_URL="http://51.20.9.164:8000";
+const  String _API_BASE="http://51.20.9.164:8000";
 const String _baseUrl = String.fromEnvironment(
-  'API_BASE_URL',
+  '_API_BASE',
   defaultValue: 'http://51.20.9.164:8000',
 );
 const String _prefix = String.fromEnvironment('API_PREFIX', defaultValue: '');
 
-String _url(String path) {
-  // joins base + optional prefix + path, avoiding double slashes
-  final p = (_prefix.isEmpty) ? '' : (_prefix.startsWith('/') ? _prefix : '/$_prefix');
-  final s = path.startsWith('/') ? path : '/$path';
-  return '$_baseUrl$p$s';
+const String _ROUTE_PATH = '/route/safest';           // ← fix
+const String _EXIT_PATH  = '/route/exit_to_safety';   // ← fix
+
+// ===== Small utils =====
+T? _path<T>(Map obj, List keys) {
+  dynamic cur = obj;
+  for (final k in keys) {
+    if (cur is Map && cur.containsKey(k)) {
+      cur = cur[k];
+    } else {
+      return null;
+    }
+  }
+  return cur as T?;
 }
 
-// ===================== Models =====================
+num? _num(dynamic v) {
+  if (v == null) return null;
+  if (v is num) return v;
+  if (v is String) return num.tryParse(v);
+  return null;
+}
+
+String fmtDuration(int seconds) {
+  final d = Duration(seconds: seconds);
+  final mm = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+  final ss = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+  if (d.inHours > 0) return '${d.inHours}:$mm:$ss';
+  return '${d.inMinutes}:$ss';
+}
+
+// ===== Core models =====
 class LatLng {
   final double lat;
   final double lng;
-
-  // Make it const so you can write: const LatLng(...)
   const LatLng({required this.lat, required this.lng});
+
+  factory LatLng.fromJson(dynamic j) {
+    if (j is Map) {
+      final la = _num(j['lat'])?.toDouble();
+      final ln = _num(j['lng'])?.toDouble() ?? _num(j['lon'])?.toDouble();
+      if (la != null && ln != null) return LatLng(lat: la, lng: ln);
+    }
+    if (j is List && j.length >= 2) {
+      return LatLng(
+        lat: _num(j[0])!.toDouble(),
+        lng: _num(j[1])!.toDouble(),
+      );
+    }
+    throw FormatException('Bad LatLng json: $j');
+  }
 
   Map<String, dynamic> toJson() => {'lat': lat, 'lng': lng};
 }
 
+class Score {
+  final double avgSeverity;
+  final double maxSeverity;
+  final int samples;
 
+  Score({required this.avgSeverity, required this.maxSeverity, required this.samples});
+
+  factory Score.fromJson(Map<String, dynamic> j) => Score(
+        avgSeverity: (_num(j['avg_severity']) ?? _num(j['avgSeverity']) ?? 0).toDouble(),
+        maxSeverity: (_num(j['max_severity']) ?? _num(j['maxSeverity']) ?? 0).toDouble(),
+        samples: (_num(j['samples']) ?? 0).toInt(),
+      );
+}
+
+class Candidate {
+  final String summary;
+  final int durationSec;
+  final int distanceM;
+  final Score score;
+
+  /// ✅ Preferred for drawing: backend-decoded polyline points.
+  final List<LatLng>? polylinePoints;
+
+  /// Optional fallback string (may be polyline5/6 or provider-specific).
+  final String? encodedPolyline;
+
+  /// Optional freeform raw payload (for debugging)
+  final Map<String, dynamic>? raw;
+
+  Candidate({
+    required this.summary,
+    required this.durationSec,
+    required this.distanceM,
+    required this.score,
+    this.polylinePoints,
+    this.encodedPolyline,
+    this.raw,
+  });
+
+  factory Candidate.fromJson(Map<String, dynamic> j) {
+    // 1) parse polyline points from either snake/camel or nested shapes
+    List<LatLng>? pts;
+    final pp = j['polyline_points'] ?? j['polylinePoints'];
+    if (pp is List) {
+      pts = pp
+          .map((e) {
+            try {
+              return LatLng.fromJson(e);
+            } catch (_) {
+              return null;
+            }
+          })
+          .whereType<LatLng>()
+          .toList();
+      if (pts.isEmpty) pts = null;
+    }
+
+    // 2) encoded polyline can be top-level or nested in raw.polyline.encodedPolyline
+    String? enc = j['encodedPolyline'] as String?;
+    final raw = (j['raw'] is Map) ? (j['raw'] as Map).cast<String, dynamic>() : null;
+    enc ??= _path<String>(raw ?? const {}, ['polyline', 'encodedPolyline']);
+
+    return Candidate(
+      summary: (j['summary'] ?? '').toString(),
+      durationSec: (_num(j['duration_sec']) ?? _num(j['durationSec']) ?? 0).toInt(),
+      distanceM: (_num(j['distance_m']) ?? _num(j['distanceM']) ?? 0).toInt(),
+      score: Score.fromJson((j['score'] as Map).cast<String, dynamic>()),
+      polylinePoints: pts,
+      encodedPolyline: enc,
+      raw: raw,
+    );
+  }
+}
+
+class SafestResponse {
+  final Candidate chosen;
+  final List<Candidate> candidates;
+
+  SafestResponse({required this.chosen, required this.candidates});
+
+  factory SafestResponse.fromJson(Map<String, dynamic> j) {
+    final chosenJ = (j['chosen'] ?? j['route']?['chosen']) as Map?;
+    final candList = (j['candidates'] ??
+            j['route']?['candidates'] ??
+            j['alternatives']) as List? ??
+        const [];
+    return SafestResponse(
+      chosen: Candidate.fromJson((chosenJ ?? const {}).cast<String, dynamic>()),
+      candidates: candList
+          .map((e) => Candidate.fromJson((e as Map).cast<String, dynamic>()))
+          .toList(),
+    );
+  }
+}
+
+// Exit API shapes
+class ExitRoute {
+  final Candidate chosen;
+  final List<Candidate> candidates;
+  ExitRoute({required this.chosen, required this.candidates});
+
+  factory ExitRoute.fromJson(Map<String, dynamic> j) => ExitRoute(
+        chosen: Candidate.fromJson((j['chosen'] as Map).cast<String, dynamic>()),
+        candidates: ((j['candidates'] as List?) ?? const [])
+            .map((e) => Candidate.fromJson((e as Map).cast<String, dynamic>()))
+            .toList(),
+      );
+}
+
+abstract class ExitResponse {
+  const ExitResponse();
+}
+
+class ExitSuccess extends ExitResponse {
+  final String safeHex;
+  final LatLng safeTarget;
+  final ExitRoute route;
+  final String? snsMessageId;
+  final String? snsError;
+
+  const ExitSuccess({
+    required this.safeHex,
+    required this.safeTarget,
+    required this.route,
+    this.snsMessageId,
+    this.snsError,
+  });
+
+  factory ExitSuccess.fromJson(Map<String, dynamic> j) => ExitSuccess(
+        safeHex: (j['safe_hex'] ?? j['safeHex']).toString(),
+        safeTarget: LatLng.fromJson(j['safe_target'] ?? j['safeTarget']),
+        route: ExitRoute.fromJson((j['route'] as Map).cast<String, dynamic>()),
+        snsMessageId: j['snsMessageId'] as String?,
+        snsError: j['snsError'] as String?,
+      );
+}
+
+class ExitNotFound extends ExitResponse {
+  final String detail;
+  const ExitNotFound(this.detail);
+
+  factory ExitNotFound.fromJson(Map<String, dynamic> j) =>
+      ExitNotFound((j['detail'] ?? 'No safe route found').toString());
+}
+
+// ===== Request payloads =====
 class RouteRequest {
   final LatLng origin;
   final LatLng destination;
   final String? city;
-  final int resolution; // 1..15 (default 9)
-  final bool alternatives; // default true
-  final String mode; // walking|driving|bicycling|transit
-  final double? alpha; // 0..1
+  final int resolution;
+  final bool alternatives;
+  final String mode; // walking | cycling | driving
+  final double alpha;
 
   RouteRequest({
     required this.origin,
     required this.destination,
+    required this.resolution,
+    required this.alternatives,
+    required this.mode,
+    required this.alpha,
     this.city,
-    this.resolution = 9,
-    this.alternatives = true,
-    this.mode = 'walking',
-    this.alpha,
   });
 
   Map<String, dynamic> toJson() => {
         'origin': origin.toJson(),
         'destination': destination.toJson(),
-        'city': city,
+        if (city != null) 'city': city,
         'resolution': resolution,
         'alternatives': alternatives,
         'mode': mode,
@@ -69,215 +251,79 @@ class ExitToSafetyRequest {
   final int resolution;
   final int maxRings;
   final String mode;
-  final String? phone;
-  final String? topicArn;
   final double? prevScore;
   final double upThreshold;
   final double downThreshold;
   final double minJump;
+  final String? phone;
+  final String? topicArn;
 
   ExitToSafetyRequest({
     required this.position,
+    required this.resolution,
+    required this.maxRings,
+    required this.mode,
+    required this.upThreshold,
+    required this.downThreshold,
+    required this.minJump,
     this.city,
-    this.resolution = 9,
-    this.maxRings = 4,
-    this.mode = 'walking',
+    this.prevScore,
     this.phone,
     this.topicArn,
-    this.prevScore,
-    this.upThreshold = 7.0,
-    this.downThreshold = 5.0,
-    this.minJump = 1.0,
   });
 
   Map<String, dynamic> toJson() => {
         'position': position.toJson(),
-        'city': city,
+        if (city != null) 'city': city,
         'resolution': resolution,
         'max_rings': maxRings,
         'mode': mode,
-        'phone': phone,
-        'topic_arn': topicArn,
-        'prev_score': prevScore,
+        if (prevScore != null) 'prev_score': prevScore,
         'up_threshold': upThreshold,
         'down_threshold': downThreshold,
         'min_jump': minJump,
+        if (phone != null) 'phone': phone,
+        if (topicArn != null) 'topicArn': topicArn,
       };
 }
 
-class Score {
-  final double avgSeverity;
-  final double maxSeverity;
-  final int samples;
-  Score({required this.avgSeverity, required this.maxSeverity, required this.samples});
-  factory Score.fromJson(Map<String, dynamic> j) => Score(
-        avgSeverity: (j['avg_severity'] ?? 0).toDouble(),
-        maxSeverity: (j['max_severity'] ?? 0).toDouble(),
-        samples: (j['samples'] ?? 0) as int,
-      );
-}
-
-class Candidate {
-  final String summary;
-  final int durationSec;
-  final int distanceM;
-  final List<String> hexes;
-  final Score score;
-  final double? cost;
-  final String? encodedPolyline; // from raw.polyline.encodedPolyline
-
-  Candidate({
-    required this.summary,
-    required this.durationSec,
-    required this.distanceM,
-    required this.hexes,
-    required this.score,
-    this.cost,
-    this.encodedPolyline,
-  });
-
-  factory Candidate.fromJson(Map<String, dynamic> j) {
-    String? enc;
-    final raw = j['raw'];
-    if (raw is Map && raw['polyline'] is Map && raw['polyline']['encodedPolyline'] is String) {
-      enc = raw['polyline']['encodedPolyline'] as String;
-    }
-    return Candidate(
-      summary: j['summary']?.toString() ?? 'route',
-      durationSec: (j['duration_sec'] ?? 0) as int,
-      distanceM: (j['distance_m'] ?? 0) as int,
-      hexes: (j['hexes'] as List?)?.map((e) => e.toString()).toList() ?? const [],
-      score: Score.fromJson(j['score'] ?? const {}),
-      cost: j['cost'] == null ? null : (j['cost'] as num).toDouble(),
-      encodedPolyline: enc,
-    );
-  }
-}
-
-class SafestResponse {
-  final Candidate chosen;
-  final List<Candidate> candidates;
-  final List<String> citiesUsed;
-  final String? primaryCity;
-
-  SafestResponse({
-    required this.chosen,
-    required this.candidates,
-    required this.citiesUsed,
-    this.primaryCity,
-  });
-
-  factory SafestResponse.fromJson(Map<String, dynamic> j) => SafestResponse(
-        chosen: Candidate.fromJson(j['chosen']),
-        candidates: (j['candidates'] as List).map((e) => Candidate.fromJson(e)).toList(),
-        citiesUsed: (j['cities_used'] as List?)?.map((e) => e.toString()).toList() ?? const [],
-        primaryCity: j['primary_city']?.toString(),
-      );
-}
-
-class ExitRouteBundle {
-  final Candidate chosen;
-  final List<Candidate> candidates;
-  ExitRouteBundle({required this.chosen, required this.candidates});
-  factory ExitRouteBundle.fromJson(Map<String, dynamic> j) => ExitRouteBundle(
-        chosen: Candidate.fromJson(j['chosen']),
-        candidates: (j['candidates'] as List).map((e) => Candidate.fromJson(e)).toList(),
-      );
-}
-
-sealed class ExitResponse {}
-
-class ExitNotFound extends ExitResponse {
-  final String detail;
-  ExitNotFound(this.detail);
-}
-
-class ExitSuccess extends ExitResponse {
-  final String safeHex;
-  final LatLng safeTarget;
-  final ExitRouteBundle route;
-  final String? snsMessageId;
-  final String? snsError;
-
-  ExitSuccess({
-    required this.safeHex,
-    required this.safeTarget,
-    required this.route,
-    this.snsMessageId,
-    this.snsError,
-  });
-
-  factory ExitSuccess.fromJson(Map<String, dynamic> j) => ExitSuccess(
-        safeHex: j['safe_hex'].toString(),
-        safeTarget: LatLng(
-          lat: (j['safe_target']['lat'] as num).toDouble(),
-          lng: (j['safe_target']['lng'] as num).toDouble(),
-        ),
-        route: ExitRouteBundle.fromJson(j['route']),
-        snsMessageId: j['sns_message_id']?.toString(),
-        snsError: j['sns_error']?.toString(),
-      );
-}
-
-// ===================== HTTP calls =====================
-Exception _httpError(http.Response r) =>
-    Exception('HTTP ${r.statusCode}: ${r.body.isNotEmpty ? r.body : r.reasonPhrase}');
-
+// ===== HTTP calls =====
 Future<SafestResponse> postSafestRoute(RouteRequest req) async {
-  final r = await http.post(
-    Uri.parse(_url('/route/safest')),
-    headers: {'Content-Type': 'application/json'},
-    body: jsonEncode(req.toJson()),
-  );
-  if (r.statusCode >= 400) throw _httpError(r);
-  return SafestResponse.fromJson(jsonDecode(r.body));
+  final uri = Uri.parse('$_API_BASE$_ROUTE_PATH');
+  final res = await http
+      .post(uri, headers: {'Content-Type': 'application/json'}, body: jsonEncode(req.toJson()))
+      .timeout(const Duration(seconds: 25));
+
+  if (res.statusCode < 200 || res.statusCode >= 300) {
+    throw Exception('Route error ${res.statusCode}: ${res.body}');
+  }
+  final j = jsonDecode(res.body) as Map<String, dynamic>;
+  // The backend may wrap the response; try common shapes.
+  final payload = (j['result'] is Map) ? (j['result'] as Map).cast<String, dynamic>() : j;
+  return SafestResponse.fromJson(payload);
 }
 
 Future<ExitResponse> postExitToSafety(ExitToSafetyRequest req) async {
-  final r = await http.post(
-    Uri.parse(_url('/route/exit_to_safety')),
-    headers: {'Content-Type': 'application/json'},
-    body: jsonEncode(req.toJson()),
-  );
-  if (r.statusCode >= 400) throw _httpError(r);
-  final j = jsonDecode(r.body) as Map<String, dynamic>;
-  if (j['action'] == 'no_exit_needed_or_not_found') {
-    return ExitNotFound(j['detail']?.toString() ?? 'No safe hex found.');
+  final uri = Uri.parse('$_API_BASE$_EXIT_PATH');
+  final res = await http
+      .post(uri, headers: {'Content-Type': 'application/json'}, body: jsonEncode(req.toJson()))
+      .timeout(const Duration(seconds: 25));
+
+  if (res.statusCode == 404) {
+    final j = jsonDecode(res.body) as Map<String, dynamic>;
+    return ExitNotFound.fromJson(j);
   }
-  return ExitSuccess.fromJson(j);
-}
-
-// ===================== Utils =====================
-String fmtDuration(int sec) {
-  final h = sec ~/ 3600;
-  final m = (sec % 3600) ~/ 60;
-  final s = sec % 60;
-  final parts = <String>[];
-  if (h > 0) parts.add('${h}h');
-  if (m > 0) parts.add('${m}m');
-  if (s > 0 || parts.isEmpty) parts.add('${s}s');
-  return parts.join(' ');
-}
-
-/// Decode Google Encoded Polyline
-List<LatLng> decodePolyline(String encoded) {
-  final List<LatLng> points = [];
-  int index = 0, lat = 0, lng = 0;
-
-  int decodeChunk() {
-    int result = 0, shift = 0, b;
-    do {
-      b = encoded.codeUnitAt(index++) - 63;
-      result |= (b & 0x1f) << shift;
-      shift += 5;
-    } while (b >= 0x20);
-    return (result & 1) != 0 ? ~(result >> 1) : (result >> 1);
+  if (res.statusCode < 200 || res.statusCode >= 300) {
+    throw Exception('Exit error ${res.statusCode}: ${res.body}');
   }
 
-  while (index < encoded.length) {
-    lat += decodeChunk();
-    lng += decodeChunk();
-    points.add(LatLng(lat: lat / 1e5, lng: lng / 1e5));
-  }
-  return points;
+  final j = jsonDecode(res.body) as Map<String, dynamic>;
+  final payload = (j['result'] is Map) ? (j['result'] as Map).cast<String, dynamic>() : j;
+
+  // Some backends use {status:'ok', data:{...}}
+  final data = (payload['data'] is Map)
+      ? (payload['data'] as Map).cast<String, dynamic>()
+      : payload;
+
+  return ExitSuccess.fromJson(data);
 }
