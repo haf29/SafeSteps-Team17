@@ -78,7 +78,7 @@ class SafetyNavigatorPage extends StatefulWidget {
 class _SafetyNavigatorPageState extends State<SafetyNavigatorPage>
     with SingleTickerProviderStateMixin {
   late final TabController _tab;
-  bool _debugRouting = true;
+  final bool _debugRouting = true;
   String? _debugLastMsg;     // shown in the little overlay
 String? _debugEncoded;     
   // shared
@@ -240,7 +240,7 @@ List<gmaps.LatLng> _decodeAnyPolyline(String encoded) {
   List<gmaps.LatLng> p5 = _polylineDecode(encoded, precision: 5);
   List<gmaps.LatLng> p6 = _polylineDecode(encoded, precision: 6);
 
-  bool _plausible(List<gmaps.LatLng> pts) {
+  bool plausible(List<gmaps.LatLng> pts) {
     if (pts.length < 2) return false;
     // most points inside Lebanon
     final inside = pts.where((p) => _inLebanon(p.latitude, p.longitude)).length;
@@ -254,17 +254,19 @@ List<gmaps.LatLng> _decodeAnyPolyline(String encoded) {
     return true;
   }
 
-  if (_plausible(p5) && !_plausible(p6)) return p5;
-  if (_plausible(p6) && !_plausible(p5)) return p6;
+  if (plausible(p5) && !plausible(p6)) return p5;
+  if (plausible(p6) && !plausible(p5)) return p6;
 
   // if both plausible, pick the smoother (smaller average step)
-  double _avgStep(List<gmaps.LatLng> pts) {
+  double avgStep(List<gmaps.LatLng> pts) {
     double sum = 0;
-    for (int i = 1; i < pts.length; i++) sum += _distM(pts[i - 1], pts[i]);
+    for (int i = 1; i < pts.length; i++) {
+      sum += _distM(pts[i - 1], pts[i]);
+    }
     return sum / (pts.length - 1);
   }
   if (p5.isNotEmpty && p6.isNotEmpty) {
-    return _avgStep(p6) < _avgStep(p5) ? p6 : p5;
+    return avgStep(p6) < avgStep(p5) ? p6 : p5;
   }
   return p5.isNotEmpty ? p5 : p6;
 }
@@ -1188,7 +1190,7 @@ if (!drew) {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   DropdownButtonFormField<String>(
-                    value: mode,
+                    initialValue: mode,
                     decoration: const InputDecoration(labelText: 'Mode'),
                     items: const [
                       DropdownMenuItem(value: 'walking', child: Text('Walking')),
@@ -1348,7 +1350,7 @@ if (!drew) {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   DropdownButtonFormField<String>(
-                    value: mode,
+                    initialValue: mode,
                     decoration: const InputDecoration(labelText: 'Mode'),
                     items: const [
                       DropdownMenuItem(value: 'walking', child: Text('Walking')),
