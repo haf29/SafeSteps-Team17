@@ -1,13 +1,12 @@
 # SafeSteps 🚶‍♀️🛡️
-Note : This will be subject to further change since project still under construction 
 
 SafeSteps is a **public-safety mobile application** that helps users navigate urban areas more safely.  
 It uses **real-time incident data, geospatial zoning, and machine learning** to provide:
 
 - 🗺️ **Color-coded heatmaps** showing relative zone safety (green = safe, red = risky).
 - 🚦 **Safest route recommendations**, avoiding high-risk areas where possible.
-- 📲 **Instant SMS/push alerts** if a user enters or approaches a danger zone.
 - 🆘 **Exit-to-safety guidance**: if a user is already inside a danger zone, the app calculates the nearest safer zone and directs them out immediately.
+- 🔮 **Severity prediction**: Users can select a zone and specify a number of days into the future to predict its severity score.
 
 ---
 
@@ -18,7 +17,7 @@ It uses **real-time incident data, geospatial zoning, and machine learning** to 
 - **Incident reporting** — crowdsourced + scraped data updates safety scores.
 - **Smart routing** — Google Routes API + severity scoring to choose safer paths.
 - **Exit to safety** — new feature to direct users out of danger zones.
-- **Notifications** — AWS SNS SMS alerts when internet connectivity is limited.
+- **Severity prediction**: Users can select a zone and specify a number of days into the future to predict its severity score.
 
 ---
 
@@ -38,9 +37,6 @@ It uses **real-time incident data, geospatial zoning, and machine learning** to 
 - Scrapers (BeautifulSoup, Scrapy, Selenium, Puppeteer)  
 - AWS S3 (store datasets, ML artifacts)  
 - AWS SageMaker (train/predict missing risk data)  
-
-**Notifications:**  
-- AWS SNS (SMS + push)
 
 ---
 
@@ -66,26 +62,18 @@ SafeSteps-Team17/
 ## 🔧 Local Setup
 
 ### Backend (FastAPI)
-```bash
-cd backend/api
-python -m venv .venv
-# Windows
-.venv\Scripts\activate
-# macOS/Linux
-source .venv/bin/activate
-
-pip install -r requirements.txt
-cp .env.example .env    # fill with your private values
-uvicorn main:app --reload
-```
-Open Swagger: `http://127.0.0.1:8000/docs`
+Fully deployed on EC2
 
 ### Frontend (Flutter)
-```bash
 cd frontend/safesteps_app
 flutter pub get
 flutter run -d chrome   # or your device
 ```
+To run the application:
+
+cd frontend/safesteps_app
+Then run the following command: flutter run -d chrome --web-port 8000   --dart-define=WEB_MAPS_ENABLED=true    --dart-define=API_BASE_URL=http://51.20.9.164:8000 --dart-define=API_PREFIX=
+
 
 ---
 
@@ -122,37 +110,8 @@ PYTHONPATH=.
 
 ---
 
-## 🔗 Important Endpoints (Backend)
-
-- `POST /user/signup`, `POST /user/confirm`, `POST /user/login`
-- `GET /hex_zones_lebanon` — preload all zones
-- `GET /hex_zones?lat=..&lng=..` — zones around a point
-- `POST /route/safest` — compute safest route between two points
-- `POST /route/exit_to_safety` — compute nearest safe exit from current position
-- `POST /report_incident` — report an incident
-- `GET /health` — service check
-
-(Full list in Swagger at `/docs`.)
-
----
-
-## 📱 Example SMS Alerts
-
-1. `SafeSteps Alert: Incident reported near {neighborhood}. Severity {level}. Avoid area for {duration}. Reply STOP to opt out.`  
-2. `SafeSteps: You’re inside a high-risk zone. Follow link to the nearest safe exit: {short_url}. Reply STOP to opt out.`  
-3. `SafeSteps verification code: {code}. It expires in 10 minutes.`
-
----
-
 ## 🧑‍🤝‍🧑 Contributors
 
 - Team17 — Amazon Industry Program @ American University of Beirut
 
 ---
-
-## 📝 Notes for AWS Reviewers
-
-- SMS messages are **transactional only** (safety alerts, verification codes, critical notifications).  
-- Users **opt-in** during signup; they may **opt-out** in-app or via **STOP** replies where supported.  
-- We comply with **AWS AUP** and regional telecom rules.  
-- Initial geography: Lebanon + EU; global-ready.
