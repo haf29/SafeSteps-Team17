@@ -1,21 +1,12 @@
+// lib/services/routes_api.dart
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
-// ===================== Config =====================
-// Use these at run time with --dart-define.
-//   API_BASE_URL:   http://127.0.0.1:8000  (or your backend host)
-//   API_PREFIX:     /api  (leave empty if your FastAPI has no prefix)
-// Example (PowerShell):
-// flutter run -d chrome --dart-define=API_BASE_URL=http://127.0.0.1:8000 --dart-define=API_PREFIX= --dart-define=WEB_MAPS_ENABLED=true
-const  String _API_BASE="http://51.20.9.164:8000";
-const String _baseUrl = String.fromEnvironment(
-  '_API_BASE',
-  defaultValue: 'http://51.20.9.164:8000',
-);
-const String _prefix = String.fromEnvironment('API_PREFIX', defaultValue: '');
-
-const String _ROUTE_PATH = '/route/safest';           // ← fix
-const String _EXIT_PATH  = '/route/exit_to_safety';   // ← fix
+// ===== Config =====
+const String _API_BASE =
+    String.fromEnvironment('API_BASE_URL', defaultValue: 'http://localhost:8000');
+const String _ROUTE_PATH = '/route/safest';
+const String _EXIT_PATH  = '/exit_to_safety';
 
 // ===== Small utils =====
 T? _path<T>(Map obj, List keys) {

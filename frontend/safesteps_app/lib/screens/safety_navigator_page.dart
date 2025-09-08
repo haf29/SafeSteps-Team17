@@ -1,26 +1,32 @@
 // lib/screens/safety_navigator_page.dart
-import 'package:flutter/services.dart'; // for Clipboard in debug panel
-
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' show min, max, cos, sin, atan2, sqrt;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart';
+import 'package:flutter/foundation.dart'; // kIsWeb, Factory
+import 'package:flutter/gestures.dart';   // EagerGestureRecognizer
 import 'package:google_maps_flutter/google_maps_flutter.dart' as gmaps;
 import 'package:geolocator/geolocator.dart';
-import 'package:geocoding/geocoding.dart' as gc;
+import 'package:geocoding/geocoding.dart' as gc; // used on mobile if Google key missing
 import 'package:http/http.dart' as http;
+import 'dart:math' as math;
 
+import 'package:google_maps_flutter/google_maps_flutter.dart' as gmaps;
+import 'package:demo/services/routes_api.dart' as api; // your model LatLng {double lat,lng}
 import '../services/routes_api.dart';
-
-// ===== bounds of Lebanon =====
+const String _ORS_KEY ="eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImJjZWYwNTc1YzgwNzRiZTRiOWI1ZjU3ZmE4MWFkMmVkIiwiaCI6Im11cm11cjY0In0=";
+const  String _API_BASE="http://51.20.9.164:8000";
+const String _baseUrl = String.fromEnvironment(
+  '_API_BASE',
+  defaultValue: 'http://51.20.9.164:8000',
+);
+// ===== bounds of Lebanon (still enforced) =====
 const double _LEB_MIN_LAT = 33.046;
 const double _LEB_MAX_LAT = 34.693;
 const double _LEB_MIN_LNG = 35.098;
 const double _LEB_MAX_LNG = 36.623;
-const String _ORS_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImJjZWYwNTc1YzgwNzRiZTRiOWI1ZjU3ZmE4MWFkMmVkIiwiaCI6Im11cm11cjY0In0=";
+
 final gmaps.LatLngBounds _LB_BOUNDS = gmaps.LatLngBounds(
   southwest: const gmaps.LatLng(_LEB_MIN_LAT, _LEB_MIN_LNG),
   northeast: const gmaps.LatLng(_LEB_MAX_LAT, _LEB_MAX_LNG),
@@ -29,17 +35,17 @@ final gmaps.LatLngBounds _LB_BOUNDS = gmaps.LatLngBounds(
 bool _inLebanon(double lat, double lng) =>
     lat >= _LEB_MIN_LAT && lat <= _LEB_MAX_LAT && lng >= _LEB_MIN_LNG && lng <= _LEB_MAX_LNG;
 
-// web maps toggle
+// enable Google map on web only when you provide a JS key and run with --dart-define=WEB_MAPS_ENABLED=true
 const bool _WEB_MAPS_ENABLED = bool.fromEnvironment('WEB_MAPS_ENABLED', defaultValue: false);
 
-// Google API key
+// Google key (Places + Geocoding + Directions)
 const String _GMAPS_KEY = String.fromEnvironment('GEOCODING_API_KEY', defaultValue: '');
 
-// OSM endpoints
+// Nominatim (OSM) endpoints for web-safe fallback search/reverse
 const String _OSM_SEARCH = 'https://nominatim.openstreetmap.org/search';
 const String _OSM_REVERSE = 'https://nominatim.openstreetmap.org/reverse';
 
-// quick cities
+// quick pick cities (for convenience)
 class _City {
   final String name;
   final double lat;
@@ -78,9 +84,7 @@ class SafetyNavigatorPage extends StatefulWidget {
 class _SafetyNavigatorPageState extends State<SafetyNavigatorPage>
     with SingleTickerProviderStateMixin {
   late final TabController _tab;
-  final bool _debugRouting = true;
-  String? _debugLastMsg;     // shown in the little overlay
-String? _debugEncoded;     
+
   // shared
   String mode = 'walking'; // walking | driving | cycling
   int resolution = 9;
@@ -139,194 +143,7 @@ String? _debugEncoded;
     _tab.dispose();
     super.dispose();
   }
-  // distance (meters)
-double _distM2(gmaps.LatLng a, gmaps.LatLng b) {
-  const R = 6371000.0;
-  final dLat = (b.latitude - a.latitude) * (3.141592653589793 / 180);
-  final dLon = (b.longitude - a.longitude) * (3.141592653589793 / 180);
-  final la1 = a.latitude * (3.141592653589793 / 180);
-  final la2 = b.latitude * (3.141592653589793 / 180);
-  final x = (sin(dLat / 2) * sin(dLat / 2)) + (cos(la1) * cos(la2) * sin(dLon / 2) * sin(dLon / 2));
-  return 2 * R * atan2(sqrt(x), sqrt(1 - x));
-}
-
-// decode with specified precision
-List<gmaps.LatLng> _polyDecode(String enc, {int precision = 5}) {
-  int index = 0, lat = 0, lng = 0;
-  final out = <gmaps.LatLng>[];
-  final factor = precision == 6 ? 1000000 : 100000;
-  int next() {
-    int res = 0, shift = 0, b;
-    do { b = enc.codeUnitAt(index++) - 63; res |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
-    return (res & 1) != 0 ? ~(res >> 1) : (res >> 1);
-  }
-  while (index < enc.length) { lat += next(); lng += next(); out.add(gmaps.LatLng(lat / factor, lng / factor)); }
-  return out;
-}
-
-// sanity summary for a polyline
-String _summarizePts(List<gmaps.LatLng> pts) {
-  if (pts.isEmpty) return 'pts=0';
-  final swLat = pts.map((p) => p.latitude).reduce(min);
-  final neLat = pts.map((p) => p.latitude).reduce(max);
-  final swLng = pts.map((p) => p.longitude).reduce(min);
-  final neLng = pts.map((p) => p.longitude).reduce(max);
-  int outside = pts.where((p) => !_inLebanon(p.latitude, p.longitude)).length;
-  double maxJump = 0;
-  for (int i = 1; i < pts.length; i++) { maxJump = max(maxJump, _distM2(pts[i-1], pts[i])); }
-  return 'pts=${pts.length} bbox=[$swLat,$swLng]→[$neLat,$neLng] outsideLB=$outside maxJump=${maxJump.toStringAsFixed(0)}m';
-}
-
-// main logger used below
-void _logRouteDebug({required String source, required String? encoded}) {
-  if (!_debugRouting) return;
-  try {
-    final enc = encoded ?? '';
-    List<gmaps.LatLng> p5 = enc.isNotEmpty ? _polyDecode(enc, precision: 5) : const [];
-    List<gmaps.LatLng> p6 = enc.isNotEmpty ? _polyDecode(enc, precision: 6) : const [];
-    final msg = StringBuffer()
-      ..writeln('ROUTE DEBUG [$source]')
-      ..writeln('encoded.len=${enc.length}')
-      ..writeln('p5  -> ${_summarizePts(p5)}')
-      ..writeln('p6  -> ${_summarizePts(p6)}');
-    debugPrint(msg.toString());
-    setState(() {
-      _debugLastMsg = msg.toString();
-      _debugEncoded = enc;
-    });
-  } catch (e) {
-    debugPrint('ROUTE DEBUG ERROR: $e');
-  }
-}
-
-  // --- Haversine (meters) ---
-double _distM(gmaps.LatLng a, gmaps.LatLng b) {
-  const R = 6371000.0;
-  final dLat = (b.latitude - a.latitude) * (3.141592653589793 / 180);
-  final dLon = (b.longitude - a.longitude) * (3.141592653589793 / 180);
-  final la1 = a.latitude * (3.141592653589793 / 180);
-  final la2 = b.latitude * (3.141592653589793 / 180);
-  final x = (sin(dLat / 2) * sin(dLat / 2)) +
-      (cos(la1) * cos(la2) * sin(dLon / 2) * sin(dLon / 2));
-  return 2 * R * atan2(sqrt(x), sqrt(1 - x));
-}
-
-// Decode with configurable precision (1e5 = Google/OSRM polyline5, 1e6 = polyline6/Mapbox/ORS)
-List<gmaps.LatLng> _polylineDecode(String encoded, {int precision = 5}) {
-  int index = 0, lat = 0, lng = 0;
-  final List<gmaps.LatLng> out = [];
-  int factor = precision == 6 ? 1000000 : 100000;
-
-  int nextChunk() {
-    int result = 0, shift = 0, b;
-    do {
-      b = encoded.codeUnitAt(index++) - 63;
-      result |= (b & 0x1f) << shift;
-      shift += 5;
-    } while (b >= 0x20);
-    return (result & 1) != 0 ? ~(result >> 1) : (result >> 1);
-  }
-
-  while (index < encoded.length) {
-    lat += nextChunk();
-    lng += nextChunk();
-    out.add(gmaps.LatLng(lat / factor, lng / factor));
-  }
-  return out;
-}
-
-// Try polyline5 first, then polyline6; pick the one that looks sane for Lebanon
-List<gmaps.LatLng> _decodeAnyPolyline(String encoded) {
-  List<gmaps.LatLng> p5 = _polylineDecode(encoded, precision: 5);
-  List<gmaps.LatLng> p6 = _polylineDecode(encoded, precision: 6);
-
-  bool plausible(List<gmaps.LatLng> pts) {
-    if (pts.length < 2) return false;
-    // most points inside Lebanon
-    final inside = pts.where((p) => _inLebanon(p.latitude, p.longitude)).length;
-    if (inside < (pts.length * 0.6)) return false;
-    // no absurd jumps
-    int spikes = 0;
-    for (int i = 1; i < pts.length; i++) {
-      if (_distM(pts[i - 1], pts[i]) > 15000) spikes++; // >15 km between consecutive samples
-      if (spikes > 2) return false;
-    }
-    return true;
-  }
-
-  if (plausible(p5) && !plausible(p6)) return p5;
-  if (plausible(p6) && !plausible(p5)) return p6;
-
-  // if both plausible, pick the smoother (smaller average step)
-  double avgStep(List<gmaps.LatLng> pts) {
-    double sum = 0;
-    for (int i = 1; i < pts.length; i++) {
-      sum += _distM(pts[i - 1], pts[i]);
-    }
-    return sum / (pts.length - 1);
-  }
-  if (p5.isNotEmpty && p6.isNotEmpty) {
-    return avgStep(p6) < avgStep(p5) ? p6 : p5;
-  }
-  return p5.isNotEmpty ? p5 : p6;
-}
-
-// Remove outliers that create “to the moon” spikes
-List<gmaps.LatLng> _sanitizeTrack(List<gmaps.LatLng> pts) {
-  if (pts.length < 2) return pts;
-  final List<gmaps.LatLng> out = [];
-  gmaps.LatLng? prev;
-  for (final p in pts) {
-    if (!_inLebanon(p.latitude, p.longitude)) continue;
-    if (prev != null && _distM(prev, p) > 20000) { // drop >20 km jumps
-      continue;
-    }
-    out.add(p);
-    prev = p;
-  }
-  return out.length >= 2 ? out : pts;
-}
-
-  // Directions (fallback) — returns street-following polyline
-  Future<List<gmaps.LatLng>> _directionsPolyline(LatLng a, LatLng b) async {
-    if (_GMAPS_KEY.isEmpty) return const [];
-    final m = (mode == 'cycling') ? 'bicycling' : (mode == 'walking' ? 'walking' : 'driving');
-    try {
-      final url = Uri.parse(
-        'https://maps.googleapis.com/maps/api/directions/json'
-        '?origin=${a.lat},${a.lng}'
-        '&destination=${b.lat},${b.lng}'
-        '&mode=$m'
-        '&region=lb'
-        '&key=$_GMAPS_KEY',
-      );
-      final res = await http.get(url).timeout(const Duration(seconds: 12));
-      if (res.statusCode != 200) return const [];
-      final json = jsonDecode(res.body);
-      final routes = (json['routes'] as List?) ?? const [];
-      if (routes.isEmpty) return const [];
-      // prefer steps for fidelity
-      final List<gmaps.LatLng> allPts = [];
-      final legs = (routes[0]['legs'] as List?) ?? const [];
-      for (final leg in legs) {
-        final steps = (leg['steps'] as List?) ?? const [];
-        for (final s in steps) {
-          final enc = (s['polyline'] as Map)['points'] as String;
-          allPts.addAll(_decodeGooglePolylineToGmaps(enc));
-        }
-      }
-      if (allPts.length >= 2) return allPts;
-      // fallback to overview polyline
-      final poly = (routes[0]['overview_polyline'] as Map)['points'] as String;
-      final overview = (routes[0]['overview_polyline'] as Map?)?['points'] as String?;
-_logRouteDebug(source: 'directions.overview', encoded: overview);
-
-      return _decodeGooglePolylineToGmaps(poly);
-    } catch (_) {
-      return const [];
-    }
-  }
-Future<List<gmaps.LatLng>> _orsDirectionsPolyline(LatLng a, LatLng b) async {
+  Future<List<gmaps.LatLng>> _orsDirectionsPolyline(LatLng a, LatLng b) async {
   if (_ORS_KEY.isEmpty) return const [];
   try {
     final uri = Uri.parse('https://api.openrouteservice.org/v2/directions/driving-car/geojson');
@@ -349,28 +166,104 @@ Future<List<gmaps.LatLng>> _orsDirectionsPolyline(LatLng a, LatLng b) async {
       debugPrint('[ors] status=${res.statusCode} body=${res.body}');
       return const [];
     }
-
     final j = jsonDecode(res.body) as Map<String, dynamic>;
     final features = (j['features'] as List?) ?? const [];
     if (features.isEmpty) return const [];
 
     final geometry = (features.first['geometry'] as Map?) ?? const {};
     final coords = (geometry['coordinates'] as List?) ?? const [];
+    if (coords.isEmpty) return const [];
 
-    final out = <gmaps.LatLng>[];
+    // coords are [[lon,lat], ...]
+    final pts = <gmaps.LatLng>[];
     for (final c in coords) {
       if (c is List && c.length >= 2) {
         final lon = (c[0] as num).toDouble();
         final lat = (c[1] as num).toDouble();
-        out.add(gmaps.LatLng(lat, lon));
+        pts.add(gmaps.LatLng(lat, lon));
       }
     }
-    return out;
+    return pts;
   } catch (e) {
     debugPrint('[ors] error: $e');
     return const [];
   }
 }
+// Google Directions fallback (street-following) -> Google Maps LatLng points
+Future<List<gmaps.LatLng>> _gmapsDirectionsPolyline(
+  LatLng a,
+  LatLng b, {
+  String? travelMode, // optional: 'driving' | 'walking' | 'cycling'
+}) async {
+  if (_GMAPS_KEY.isEmpty) return const [];
+
+  // your UI uses: 'driving' | 'walking' | 'cycling'
+  // Google expects: driving | walking | bicycling
+  final String uiMode = (travelMode ?? mode); // use your current field if you have one
+  final String gMode =
+      (uiMode == 'cycling') ? 'bicycling' : (uiMode == 'walking' ? 'walking' : 'driving');
+
+  try {
+    final url = Uri.parse(
+      'https://maps.googleapis.com/maps/api/directions/json'
+      '?origin=${a.lat},${a.lng}'
+      '&destination=${b.lat},${b.lng}'
+      '&mode=$gMode'
+      '&region=lb'
+      '&key=$_GMAPS_KEY',
+    );
+
+    final res = await http.get(url).timeout(const Duration(seconds: 12));
+    if (res.statusCode != 200) return const [];
+
+    final j = jsonDecode(res.body) as Map<String, dynamic>;
+    final routes = (j['routes'] as List?) ?? const [];
+    if (routes.isEmpty) return const [];
+
+    // overview polyline covers the full route
+    final poly = (routes.first['overview_polyline'] as Map)['points'] as String;
+
+    // IMPORTANT: use your decoder that returns gmaps.LatLng
+    // (this is the one we fixed earlier)
+    final pts = _polylineDecode(poly, precision: 5); // -> List<gmaps.LatLng>
+    return pts;
+  } catch (_) {
+    return const [];
+  }
+}
+
+  // Fallback to Google Directions (street-following) if backend polyline is missing
+Future<List<gmaps.LatLng>> _directionsPolyline(LatLng a, LatLng b) async {
+  if (_GMAPS_KEY.isEmpty) return const [];
+
+  // your UI uses 'walking' | 'driving' | 'cycling'; Google expects 'bicycling'
+  final m = (mode == 'cycling') ? 'bicycling' : (mode == 'walking' ? 'walking' : 'driving');
+
+  try {
+    final url = Uri.parse(
+      'https://maps.googleapis.com/maps/api/directions/json'
+      '?origin=${a.lat},${a.lng}'
+      '&destination=${b.lat},${b.lng}'
+      '&mode=$m'
+      '&region=lb'
+      '&key=$_GMAPS_KEY',
+    );
+
+    final res = await http.get(url).timeout(const Duration(seconds: 12));
+    if (res.statusCode != 200) return const [];
+
+    final json = jsonDecode(res.body);
+    final routes = (json['routes'] as List?) ?? const [];
+    if (routes.isEmpty) return const [];
+
+    final poly = routes[0]['overview_polyline']['points'] as String;
+    final pts = decodePolyline(poly); // returns List<LatLng> (your model)
+    return pts.map((p) => gmaps.LatLng(p.lat, p.lng)).toList();
+  } catch (_) {
+    return const [];
+  }
+}
+
 
   Future<void> _bootstrapLocation() async {
     try {
@@ -396,7 +289,7 @@ Future<List<gmaps.LatLng>> _orsDirectionsPolyline(LatLng a, LatLng b) async {
         lng: p.lng.clamp(_LEB_MIN_LNG, _LEB_MAX_LNG).toDouble(),
       );
 
-  // ===== geocoding / location / map helpers =====
+  // ======= helpers: geocoding / location / map =======
   Future<bool> _ensureLocPerm() async {
     var perm = await Geolocator.checkPermission();
     if (perm == LocationPermission.denied) {
@@ -405,6 +298,7 @@ Future<List<gmaps.LatLng>> _orsDirectionsPolyline(LatLng a, LatLng b) async {
     return perm == LocationPermission.always || perm == LocationPermission.whileInUse;
   }
 
+  // ---- Google Places (primary) ----
   Future<List<_PlacePred>> _placesAutocomplete(String input) async {
     if (_GMAPS_KEY.isEmpty || input.trim().isEmpty) return const [];
     try {
@@ -445,6 +339,7 @@ Future<List<gmaps.LatLng>> _orsDirectionsPolyline(LatLng a, LatLng b) async {
     }
   }
 
+  // ---- OSM/Nominatim fallback (web-friendly, no key) ----
   Future<LatLng?> _osmGeocodeLB(String q) async {
     try {
       final uri = Uri.parse(
@@ -481,13 +376,16 @@ Future<List<gmaps.LatLng>> _orsDirectionsPolyline(LatLng a, LatLng b) async {
     }
   }
 
+  // ---- Free text geocode with layered fallbacks ----
   Future<LatLng?> _geocode(String q) async {
+    // 1) Places Specific result (Autocomplete -> Place details)
     if (_GMAPS_KEY.isNotEmpty) {
       final preds = await _placesAutocomplete(q);
       if (preds.isNotEmpty) {
         final p = await _placeDetails(preds.first.placeId);
         if (p != null) return p;
       }
+      // 2) Google Geocoding fallback
       try {
         final uri = Uri.parse(
           'https://maps.googleapis.com/maps/api/geocode/json'
@@ -507,10 +405,12 @@ Future<List<gmaps.LatLng>> _orsDirectionsPolyline(LatLng a, LatLng b) async {
       } catch (_) {}
     }
 
+    // 3) OSM web-safe fallback
     if (kIsWeb) {
       return _osmGeocodeLB(q);
     }
 
+    // 4) Device geocoder (mobile)
     try {
       final list = await gc.locationFromAddress('$q, Lebanon', localeIdentifier: 'en_LB');
       if (list.isEmpty) return null;
@@ -555,7 +455,7 @@ Future<List<gmaps.LatLng>> _orsDirectionsPolyline(LatLng a, LatLng b) async {
     _map!.animateCamera(gmaps.CameraUpdate.newLatLngZoom(gmaps.LatLng(p.lat, p.lng), zoom));
   }
 
-  // ===== backend calls =====
+  // ====== backend calls ======
   Future<void> _plan() async {
     setState(() { planBusy = true; planErr = null; planRes = null; });
     try {
@@ -603,7 +503,7 @@ Future<List<gmaps.LatLng>> _orsDirectionsPolyline(LatLng a, LatLng b) async {
     }
   }
 
-  // ===== live tracking =====
+  // ====== live tracking ======
   LocationSettings _liveSettingsForMode() {
     switch (mode) {
       case 'walking': return const LocationSettings(accuracy: LocationAccuracy.bestForNavigation, distanceFilter: 4);
@@ -625,6 +525,7 @@ Future<List<gmaps.LatLng>> _orsDirectionsPolyline(LatLng a, LatLng b) async {
       if (liveFollowPlan) { _origin = live; _originLabel = 'Live location'; }
       if (liveFollowExit)  { _position = live; _posLabel = 'Live location'; }
 
+      // trail
       final p = gmaps.LatLng(pos.latitude, pos.longitude);
       _liveTrail.add(p);
       if (_liveTrail.length > 1) {
@@ -654,144 +555,260 @@ Future<List<gmaps.LatLng>> _orsDirectionsPolyline(LatLng a, LatLng b) async {
       _polylines.removeWhere((pl) => pl.polylineId.value == 'live');
     }
   }
+  /// Decode a Google polyline string into Google Maps LatLngs.
+/// [precision] is usually 5 (Google Directions) or 6 (ORS).
+/// Google/ORS polyline decoder (precision 5 or 6) → Google Maps LatLng.
+List<gmaps.LatLng> _polylineDecode(String encoded, {int precision = 5}) {
+  final List<gmaps.LatLng> result = <gmaps.LatLng>[];
+  int index = 0, lat = 0, lng = 0;
+  final double factor = math.pow(10, precision).toDouble();
 
-  // ===== draw helpers (Google-style cased polylines) =====
+  while (index < encoded.length) {
+    int b, shift = 0, resultLat = 0;
+    do {
+      b = encoded.codeUnitAt(index++) - 63;
+      resultLat |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    final int dlat = ((resultLat & 1) != 0) ? ~(resultLat >> 1) : (resultLat >> 1);
+    lat += dlat;
 
-  List<gmaps.LatLng> _decodeGooglePolylineToGmaps(String encoded) {
-    int index = 0, lat = 0, lng = 0;
-    final out = <gmaps.LatLng>[];
+    shift = 0;
+    int resultLng = 0;
+    do {
+      b = encoded.codeUnitAt(index++) - 63;
+      resultLng |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    final int dlng = ((resultLng & 1) != 0) ? ~(resultLng >> 1) : (resultLng >> 1);
+    lng += dlng;
 
-    int nextChunk() {
-      int result = 0, shift = 0, b;
-      do {
-        b = encoded.codeUnitAt(index++) - 63;
-        result |= (b & 0x1f) << shift;
-        shift += 5;
-      } while (b >= 0x20);
-      return (result & 1) != 0 ? ~(result >> 1) : (result >> 1);
+    // Google Maps LatLng uses positional (latitude, longitude)
+    result.add(gmaps.LatLng(lat / factor, lng / factor));
+  }
+  return result;
+}
+
+// --- Add inside _SafetyNavigatorPageState -------------------------------
+
+/// Accepts either:
+/// - encoded polyline string (precision 5 or 6), e.g. "yzocFzynhV..."; OR
+/// - GeoJSON LineString: {"type":"LineString","coordinates":[[lng,lat],[lng,lat],...]}
+List<gmaps.LatLng> _decodeAnyPolyline(String encoded) {
+  final p5 = _polylineDecode(encoded, precision: 5);
+  final p6 = _polylineDecode(encoded, precision: 6);
+
+  bool plausible(List<gmaps.LatLng> pts) {
+    if (pts.length < 2) return false;
+    final inside = pts.where((p) => _inLebanon(p.latitude, p.longitude)).length;
+    if (inside < (pts.length * 0.6)) return false;
+    int spikes = 0;
+    for (int i = 1; i < pts.length; i++) {
+      if (_distM(pts[i - 1], pts[i]) > 15000) spikes++; // > 15 km
+      if (spikes > 2) return false;
     }
-
-    while (index < encoded.length) {
-      lat += nextChunk();
-      lng += nextChunk();
-      out.add(gmaps.LatLng(lat / 1e5, lng / 1e5));
-    }
-    return out;
+    return true;
   }
 
+  if (plausible(p5) && !plausible(p6)) return p5;
+  if (plausible(p6) && !plausible(p5)) return p6;
+
+  double avgStep(List<gmaps.LatLng> pts) {
+    double sum = 0;
+    for (int i = 1; i < pts.length; i++) {
+      sum += _distM(pts[i - 1], pts[i]);
+    }
+    return sum / (pts.length - 1);
+  }
+
+  if (p5.isNotEmpty && p6.isNotEmpty) {
+    return avgStep(p6) < avgStep(p5) ? p6 : p5;
+  }
+  return p5.isNotEmpty ? p5 : p6;
+}
+
+
+/// Google/ORS polyline decoder (precision 5 or 6).
+List<LatLng> _polyDecode(String encoded, {int precision = 5}) {
+  final List<LatLng> result = <LatLng>[];
+  int index = 0, lat = 0, lng = 0;
+  final factor = math.pow(10, precision).toDouble();
+
+  while (index < encoded.length) {
+    int b, shift = 0, resultLat = 0;
+    do {
+      b = encoded.codeUnitAt(index++) - 63;
+      resultLat |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    final dlat = ((resultLat & 1) != 0) ? ~(resultLat >> 1) : (resultLat >> 1);
+    lat += dlat;
+
+    shift = 0;
+    int resultLng = 0;
+    do {
+      b = encoded.codeUnitAt(index++) - 63;
+      resultLng |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    final dlng = ((resultLng & 1) != 0) ? ~(resultLng >> 1) : (resultLng >> 1);
+    lng += dlng;
+
+    result.add(LatLng(lat: lat / factor, lng: lng / factor));
+
+  }
+  return result;
+}
+
+/// Squared distance in meters between two LatLng points (fast approx).
+/// Equirectangular approximation distance in **meters** between Google LatLngs.
+double _distM(gmaps.LatLng a, gmaps.LatLng b) {
+  const double earthR = 6371000.0; // meters
+  final double lat1 = a.latitude * math.pi / 180.0;
+  final double lat2 = b.latitude * math.pi / 180.0;
+  final double dLat = lat2 - lat1;
+  final double dLon = (b.longitude - a.longitude) * math.pi / 180.0;
+  final double x = dLon * math.cos((lat1 + lat2) / 2.0);
+  final double y = dLat;
+  final double d = earthR * math.sqrt(x * x + y * y);
+  return d; // meters (use d*d if you truly need “squared meters” for ranking)
+}
+
+// Convert API LatLng -> Google Maps LatLng
+List<gmaps.LatLng> _g(List<api.LatLng> pts) =>
+    pts.map((p) => gmaps.LatLng(p.lat, p.lng)).toList(growable: false);
+
+gmaps.LatLng _g1(api.LatLng p) => gmaps.LatLng(p.lat, p.lng);
+
+// ------------------------------------------------------------------------
+/// Google encoded polyline decoder (precision=5 by default).
+/// Returns a list of your app's LatLng (with named params lat/lng).
+List<LatLng> decodePolyline(String poly, {int precision = 5}) {
+  final List<LatLng> result = [];
+  final int len = poly.length;
+  int index = 0, lat = 0, lng = 0;
+  final int factor = math.pow(10, precision).toInt();
+
+  while (index < len) {
+    int b, shift = 0, res = 0;
+    do {
+      b = poly.codeUnitAt(index++) - 63;
+      res |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    final int dlat = (res & 1) != 0 ? ~(res >> 1) : (res >> 1);
+    lat += dlat;
+
+    shift = 0;
+    res = 0;
+    do {
+      b = poly.codeUnitAt(index++) - 63;
+      res |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    final int dlng = (res & 1) != 0 ? ~(res >> 1) : (res >> 1);
+    lng += dlng;
+
+    result.add(
+      LatLng(lat: lat / factor, lng: lng / factor),
+    );
+  }
+  return result;
+}
+
+/// Fast(ish) distance in meters using haversine on your LatLng model.
+
+
+/// If you sometimes receive [lon, lat] arrays (GeoJSON-style),
+/// convert them to your LatLng (lat/lng) safely.
+List<LatLng> _toLatLngList(List<dynamic> coords) {
+  return coords
+      .map((p) => LatLng(
+            lat: (p[1] as num).toDouble(),
+            lng: (p[0] as num).toDouble(),
+          ))
+      .toList(growable: false);
+}
+
+  // ====== Directions fallback (street-following) ======
+ Future<List<gmaps.LatLng>> _directionsPolylines(LatLng a, LatLng b) async {
+  if (_GMAPS_KEY.isEmpty) return const [];
+
+  // Map UI mode to Google Directions mode
+  final gmMode = ((){
+    switch (mode) {
+      case 'cycling': return 'bicycling';
+      case 'walking': return 'walking';
+      case 'transit': return 'transit'; // keep if you want public transport
+      default: return 'driving';
+    }
+  })();
+
+  final url = Uri.https(
+    'maps.googleapis.com',
+    '/maps/api/directions/json',
+    <String, String>{
+      'origin': '${a.lat},${a.lng}',
+      'destination': '${b.lat},${b.lng}',
+      'mode': gmMode,
+      'region': 'lb',        // bias to Lebanon
+      'avoid': 'ferries',    // optional
+      // 'alternatives': 'true', // uncomment if you want multiple candidates
+      'key': _GMAPS_KEY,
+    },
+  );
+
+  try {
+    final res = await http.get(url).timeout(const Duration(seconds: 12));
+    if (res.statusCode != 200) return const [];
+
+    final map = jsonDecode(res.body) as Map<String, dynamic>;
+    if ((map['status'] as String?) != 'OK') return const [];
+
+    final routes = (map['routes'] as List);
+    if (routes.isEmpty) return const [];
+
+    // ---- Option A: higher-fidelity path from steps (recommended) ----
+    final List<gmaps.LatLng> allPts = [];
+    final legs = (routes[0]['legs'] as List?) ?? const [];
+    for (final leg in legs) {
+      final steps = (leg['steps'] as List?) ?? const [];
+      for (final s in steps) {
+        final seg = decodePolyline((s['polyline'] as Map)['points'] as String);
+        allPts.addAll(seg.map((p) => gmaps.LatLng(p.lat, p.lng)));
+      }
+    }
+    if (allPts.length >= 2) return allPts;
+
+    // ---- Option B: fallback to overview polyline ----
+    final poly = (routes[0]['overview_polyline'] as Map)['points'] as String;
+    final pts = decodePolyline(poly);
+    return pts.map((p) => gmaps.LatLng(p.lat, p.lng)).toList();
+  } catch (e) {
+    // Optional: debugPrint('Directions error: $e');
+    return const [];
+  }
+}
+
+  // ====== draw helpers ======
   void _addChosenPolyline(List<gmaps.LatLng> gpts, String id) {
     if (gpts.isEmpty) return;
-    _polylines.addAll([
-      gmaps.Polyline(
-        polylineId: gmaps.PolylineId('${id}_shadow'),
-        points: gpts,
-        geodesic: true,
-        width: 20,
-        color: Colors.black.withOpacity(0.15),
-        zIndex: 10,
-        startCap: gmaps.Cap.roundCap,
-        endCap: gmaps.Cap.roundCap,
-        jointType: gmaps.JointType.round,
-      ),
-      gmaps.Polyline(
-        polylineId: gmaps.PolylineId('${id}_halo'),
-        points: gpts,
-        geodesic: true,
-        width: 14,
-        color: Colors.white,
-        zIndex: 20,
-        startCap: gmaps.Cap.roundCap,
-        endCap: gmaps.Cap.roundCap,
-        jointType: gmaps.JointType.round,
-      ),
-      gmaps.Polyline(
-        polylineId: gmaps.PolylineId('${id}_core'),
-        points: gpts,
-        geodesic: true,
-        width: 8,
-        color: const Color(0xFF1A73E8),
-        zIndex: 30,
-        startCap: gmaps.Cap.roundCap,
-        endCap: gmaps.Cap.roundCap,
-        jointType: gmaps.JointType.round,
-      ),
-    ]);
-  }
-
- Future<void> _drawPlanOnMap(SafestResponse res) async {
-  final chosen = res.chosen;
-
-  // Keep this to inspect backend strings in the overlay, but we won't use it for drawing.
-  _logRouteDebug(source: 'plan.chosen', encoded: chosen.encodedPolyline);
-
-  _polylines = {};
-  _markers = {
-    gmaps.Marker(
-      markerId: const gmaps.MarkerId('origin'),
-      position: gmaps.LatLng(_origin.lat, _origin.lng),
-      infoWindow: gmaps.InfoWindow(title: 'Origin', snippet: _originLabel),
-    ),
-    gmaps.Marker(
-      markerId: const gmaps.MarkerId('dest'),
-      position: gmaps.LatLng(_destination.lat, _destination.lng),
-      infoWindow: gmaps.InfoWindow(title: 'Destination', snippet: _destLabel),
-    ),
-  };
-
-  bool drew = false;
-
-  // 1) ✅ Prefer server points (if your backend provides them)
-  if (chosen.polylinePoints != null && chosen.polylinePoints!.isNotEmpty) {
-    var g = chosen.polylinePoints!
-        .map((p) => gmaps.LatLng(p.lat, p.lng))
-        .toList();
-    g = _sanitizeTrack(g);
-    if (g.length >= 2) {
-      _addChosenPolyline(g, 'chosen_pts');
-      _map?.animateCamera(gmaps.CameraUpdate.newLatLngBounds(_bounds(g), 40));
-      drew = true;
-    }
-  }
-
-  // 2) Fallback: Google Directions between origin/destination
-  // ORS fallback (especially for Web where Google REST gets CORS-blocked)
-if (!drew) {
-  var gpts = await _orsDirectionsPolyline(_origin, _destination);
-  gpts = _sanitizeTrack(gpts);
-  if (gpts.length >= 2) {
-    _addChosenPolyline(gpts, 'ors_fallback');
-    _map?.animateCamera(gmaps.CameraUpdate.newLatLngBounds(_bounds(gpts), 40));
-    drew = true;
-  }
-}
-
-
-  // 3) Last resort: straight dashed line so the user sees something
-  if (!drew) {
-    final a = gmaps.LatLng(_origin.lat, _origin.lng);
-    final b = gmaps.LatLng(_destination.lat, _destination.lng);
     _polylines.add(gmaps.Polyline(
-      polylineId: const gmaps.PolylineId('straight_fallback'),
-      points: [a, b],
-      width: 3,
-      color: Colors.black54,
+      polylineId: gmaps.PolylineId(id),
+      points: gpts,
+      width: 6,
+      color: Colors.blue,
       geodesic: true,
-      patterns: <gmaps.PatternItem>[gmaps.PatternItem.dash(20), gmaps.PatternItem.gap(10)],
+      startCap: gmaps.Cap.roundCap,
+      endCap: gmaps.Cap.roundCap,
+      jointType: gmaps.JointType.round,
     ));
-    _map?.animateCamera(gmaps.CameraUpdate.newLatLngBounds(_bounds([a, b]), 60));
   }
 
-  setState(() {});
-}
-
-
-
- Future<void> _drawExitOnMap(ExitSuccess res) async {
+Future<void> _drawExitOnMap(ExitSuccess res) async {
   final chosen = res.route.chosen;
 
-  // Still log for debugging, but we won't decode this for drawing.
-  _logRouteDebug(source: 'exit.chosen', encoded: chosen.encodedPolyline);
-
+  // Reset layers
   _polylines = {};
   _markers = {
     gmaps.Marker(
@@ -808,53 +825,170 @@ if (!drew) {
 
   bool drew = false;
 
-  // 1) ✅ Prefer server points
+  // 1) ✅ Prefer server points (already street-following)
   if (chosen.polylinePoints != null && chosen.polylinePoints!.isNotEmpty) {
     var g = chosen.polylinePoints!
         .map((p) => gmaps.LatLng(p.lat, p.lng))
-        .toList();
-    g = _sanitizeTrack(g);
+        .toList(growable: false);
+
+   
     if (g.length >= 2) {
       _addChosenPolyline(g, 'exit_pts');
-      _map?.animateCamera(gmaps.CameraUpdate.newLatLngBounds(_bounds(g), 40));
+      _map?.animateCamera(
+        gmaps.CameraUpdate.newLatLngBounds(_bounds(g), 40),
+      );
       drew = true;
     }
   }
 
-  // 2) Fallback: Directions from current position to safe target
-  // ORS fallback (especially for Web)
-if (!drew) {
-  var gpts = await _orsDirectionsPolyline(
-    _position,
-    LatLng(lat: res.safeTarget.lat, lng: res.safeTarget.lng),
-  );
-  gpts = _sanitizeTrack(gpts);
-  if (gpts.length >= 2) {
-    _addChosenPolyline(gpts, 'ors_fallback');
-    _map?.animateCamera(gmaps.CameraUpdate.newLatLngBounds(_bounds(gpts), 40));
-    drew = true;
+  // 2) Street-following: try Google Directions
+  if (!drew) {
+    var g = await _gmapsDirectionsPolyline(
+      _position,
+      LatLng(lat: res.safeTarget.lat, lng: res.safeTarget.lng),
+      // travelMode: mode, // (optional) if your helper supports it
+    );
+    
+    if (g.length >= 2) {
+      _addChosenPolyline(g, 'gmaps_exit');
+      _map?.animateCamera(
+        gmaps.CameraUpdate.newLatLngBounds(_bounds(g), 40),
+      );
+      drew = true;
+    }
   }
-}
 
+  // 2.5) ORS fallback only if Google returned nothing
+  if (!drew) {
+    var g = await _orsDirectionsPolyline(
+      _position,
+      LatLng(lat: res.safeTarget.lat, lng: res.safeTarget.lng),
+    );
+    
+    if (g.length >= 2) {
+      _addChosenPolyline(g, 'ors_exit');
+      _map?.animateCamera(
+        gmaps.CameraUpdate.newLatLngBounds(_bounds(g), 40),
+      );
+      drew = true;
+    }
+  }
 
-  // 3) Last resort: straight dashed
+  // 3) Last resort: straight dashed line
   if (!drew) {
     final a = gmaps.LatLng(_position.lat, _position.lng);
     final b = gmaps.LatLng(res.safeTarget.lat, res.safeTarget.lng);
-    _polylines.add(gmaps.Polyline(
-      polylineId: const gmaps.PolylineId('straight_exit'),
-      points: [a, b],
-      width: 3,
-      color: Colors.black54,
-      geodesic: true,
-      patterns: <gmaps.PatternItem>[gmaps.PatternItem.dash(20), gmaps.PatternItem.gap(10)],
-    ));
-    _map?.animateCamera(gmaps.CameraUpdate.newLatLngBounds(_bounds([a, b]), 60));
+    _polylines.add(
+      gmaps.Polyline(
+        polylineId: const gmaps.PolylineId('straight_exit'),
+        points: [a, b],
+        width: 3,
+        color: Colors.black54,
+        geodesic: true,
+        patterns: <gmaps.PatternItem>[
+          gmaps.PatternItem.dash(20),
+          gmaps.PatternItem.gap(10),
+        ],
+      ),
+    );
+    _map?.animateCamera(
+      gmaps.CameraUpdate.newLatLngBounds(_bounds([a, b]), 60),
+    );
   }
 
   setState(() {});
 }
 
+Future<void> _drawPlanOnMap(SafestResponse res) async {
+  final chosen = res.chosen;
+
+  // Reset layers
+  _polylines = {};
+  _markers = {
+    gmaps.Marker(
+      markerId: const gmaps.MarkerId('origin'),
+      position: gmaps.LatLng(_origin.lat, _origin.lng),
+      infoWindow: gmaps.InfoWindow(title: 'Origin', snippet: _originLabel),
+    ),
+    gmaps.Marker(
+      markerId: const gmaps.MarkerId('dest'),
+      position: gmaps.LatLng(_destination.lat, _destination.lng),
+      infoWindow: gmaps.InfoWindow(title: 'Destination', snippet: _destLabel),
+    ),
+  };
+
+  bool drew = false;
+
+  // 1) ✅ Prefer server points (already street-following)
+  if (chosen.polylinePoints != null && chosen.polylinePoints!.isNotEmpty) {
+    var g = chosen.polylinePoints!
+        .map((p) => gmaps.LatLng(p.lat, p.lng))
+        .toList(growable: false);
+
+    
+    if (g.length >= 2) {
+      _addChosenPolyline(g, 'plan_pts');
+      _map?.animateCamera(
+        gmaps.CameraUpdate.newLatLngBounds(_bounds(g), 40),
+      );
+      drew = true;
+    }
+  }
+
+  // 2) Street-following: try Google Directions (origin → destination)
+  if (!drew) {
+    var g = await _gmapsDirectionsPolyline(
+      _origin,
+      _destination,
+      // travelMode: mode, // (optional) if your helper supports it
+    );
+    
+    if (g.length >= 2) {
+      _addChosenPolyline(g, 'gmaps_plan');
+      _map?.animateCamera(
+        gmaps.CameraUpdate.newLatLngBounds(_bounds(g), 40),
+      );
+      drew = true;
+    }
+  }
+
+  // 2.5) ORS fallback only if Google returned nothing
+  if (!drew) {
+    var g = await _orsDirectionsPolyline(_origin, _destination);
+   
+    if (g.length >= 2) {
+      _addChosenPolyline(g, 'ors_plan');
+      _map?.animateCamera(
+        gmaps.CameraUpdate.newLatLngBounds(_bounds(g), 40),
+      );
+      drew = true;
+    }
+  }
+
+  // 3) Last resort: straight dashed line
+  if (!drew) {
+    final a = gmaps.LatLng(_origin.lat, _origin.lng);
+    final b = gmaps.LatLng(_destination.lat, _destination.lng);
+    _polylines.add(
+      gmaps.Polyline(
+        polylineId: const gmaps.PolylineId('straight_plan'),
+        points: [a, b],
+        width: 3,
+        color: Colors.black54,
+        geodesic: true,
+        patterns: <gmaps.PatternItem>[
+          gmaps.PatternItem.dash(20),
+          gmaps.PatternItem.gap(10),
+        ],
+      ),
+    );
+    _map?.animateCamera(
+      gmaps.CameraUpdate.newLatLngBounds(_bounds([a, b]), 60),
+    );
+  }
+
+  setState(() {});
+}
 
 
   gmaps.LatLngBounds _bounds(List<gmaps.LatLng> pts) {
@@ -880,164 +1014,97 @@ if (!drew) {
     return gmaps.LatLngBounds(southwest: sw, northeast: ne);
   }
 
-  // ===== map widget =====
+  // ====== map widget ======
   bool get _usePlaceholder => kIsWeb && !_WEB_MAPS_ENABLED;
-
-  void _onSafetyPressed() {
-    if (_tab.index == 0) {
-      _openSafeSuggestionsAround(_origin);
-    } else {
-      _openSafeSuggestionsAround(_position);
+    void _onSafetyPressed() {
+      if (_tab.index == 0) {
+        _openSafeSuggestionsAround(_origin);    // Planning tab unchanged
+      } else {
+        _exitToSafety();                         // Exit tab: run backend now
+      }
     }
-  }
+
 
   Widget _mapWidget() {
-  // Placeholder for web when maps disabled
-  if (_usePlaceholder) {
-    return Container(
-      height: 260,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: Colors.black12,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: const Padding(
-        padding: EdgeInsets.all(12),
-        child: Text(
-          'Map disabled on Web.\nAdd a Google Maps JS API key to web/index.html '
-          'and run with --dart-define=WEB_MAPS_ENABLED=true to enable.',
-          textAlign: TextAlign.center,
+    if (_usePlaceholder) {
+      return Container(
+        height: 260,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(color: Colors.black12, borderRadius: BorderRadius.circular(8)),
+        child: const Padding(
+          padding: EdgeInsets.all(12),
+          child: Text(
+            'Map disabled on Web.\nAdd a Google Maps JS API key to web/index.html '
+            'and run with --dart-define=WEB_MAPS_ENABLED=true to enable.',
+            textAlign: TextAlign.center,
+          ),
         ),
+      );
+    }
+
+    final mapChild = gmaps.GoogleMap(
+      mapType: gmaps.MapType.terrain,
+      initialCameraPosition: gmaps.CameraPosition(
+        target: gmaps.LatLng(_origin.lat, _origin.lng),
+        zoom: 12,
+      ),
+      myLocationButtonEnabled: false,
+      myLocationEnabled: false,
+      zoomControlsEnabled: true,
+      cameraTargetBounds: gmaps.CameraTargetBounds(_LB_BOUNDS),
+      minMaxZoomPreference: const gmaps.MinMaxZoomPreference(8, 19),
+      markers: _markers,
+      polylines: _polylines,
+      gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+        Factory<OneSequenceGestureRecognizer>(() => EagerGestureRecognizer()),
+      },
+      onMapCreated: (c) => _map = c,
+      onTap: (p) async {
+        if (_mapTapTarget == null) return;
+        if (!_inLebanon(p.latitude, p.longitude)) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Please pick inside Lebanon')),
+            );
+          }
+          return;
+        }
+        final clamped = _clampLB(LatLng(lat: p.latitude, lng: p.longitude));
+        final label = await _reverseLabel(clamped);
+
+        switch (_mapTapTarget!) {
+          case PickTarget.origin:      _origin = clamped; _originLabel = label;      break;
+          case PickTarget.destination: _destination = clamped; _destLabel = label;   break;
+          case PickTarget.position:    _position = clamped; _posLabel = label;       break;
+        }
+        setState(() => _mapTapTarget = null);
+      },
+    );
+
+    // Safety FAB near zoom "-"
+    return SizedBox(
+      height: 260,
+      child: Stack(
+        children: [
+          Positioned.fill(child: mapChild),
+          Positioned(
+            right: 16,
+            bottom: 90, // sit next to the "-" zoom
+            child: Tooltip(
+              message: 'Safety',
+              child: FloatingActionButton.small(
+                heroTag: 'safetyBtn',
+                onPressed: _onSafetyPressed,
+                child: const Icon(Icons.safety_check),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  // Real Google Map
-  final mapChild = gmaps.GoogleMap(
-    mapType: gmaps.MapType.terrain,
-    initialCameraPosition: gmaps.CameraPosition(
-      target: gmaps.LatLng(_origin.lat, _origin.lng),
-      zoom: 12,
-    ),
-    myLocationButtonEnabled: false,
-    myLocationEnabled: false,
-    zoomControlsEnabled: true,
-    cameraTargetBounds: gmaps.CameraTargetBounds(_LB_BOUNDS),
-    minMaxZoomPreference: const gmaps.MinMaxZoomPreference(8, 19),
-    markers: _markers,
-    polylines: _polylines,
-    gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
-      Factory<OneSequenceGestureRecognizer>(() => EagerGestureRecognizer()),
-    },
-    onMapCreated: (c) => _map = c,
-    onTap: (p) async {
-      if (_mapTapTarget == null) return;
-      if (!_inLebanon(p.latitude, p.longitude)) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please pick inside Lebanon')),
-          );
-        }
-        return;
-      }
-      final clamped = _clampLB(LatLng(lat: p.latitude, lng: p.longitude));
-      final label = await _reverseLabel(clamped);
-
-      switch (_mapTapTarget!) {
-        case PickTarget.origin:
-          _origin = clamped; _originLabel = label; break;
-        case PickTarget.destination:
-          _destination = clamped; _destLabel = label; break;
-        case PickTarget.position:
-          _position = clamped; _posLabel = label; break;
-      }
-      setState(() => _mapTapTarget = null);
-    },
-  );
-
-  return SizedBox(
-    height: 260,
-    child: Stack(
-      children: [
-        Positioned.fill(child: mapChild),
-
-        // Safety FAB near the "-" zoom
-        Positioned(
-          right: 16,
-          bottom: 90,
-          child: Tooltip(
-            message: 'Safety',
-            child: FloatingActionButton.small(
-              heroTag: 'safetyBtn',
-              onPressed: _onSafetyPressed,
-              child: const Icon(Icons.safety_check),
-            ),
-          ),
-        ),
-
-        // Debug panel (only when enabled)
-        if (_debugRouting && _debugLastMsg != null)
-          Positioned(
-            left: 8,
-            right: 8,
-            bottom: 8,
-            child: Card(
-              color: Colors.black.withOpacity(0.75),
-              elevation: 4,
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Text(
-                          'Route debug',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const Spacer(),
-                        IconButton(
-                          visualDensity: VisualDensity.compact,
-                          icon: const Icon(Icons.copy, size: 16, color: Colors.white70),
-                          tooltip: 'Copy encoded polyline',
-                          onPressed: _debugEncoded == null
-                              ? null
-                              : () => Clipboard.setData(
-                                    ClipboardData(text: _debugEncoded!),
-                                  ),
-                        ),
-                        IconButton(
-                          visualDensity: VisualDensity.compact,
-                          icon: const Icon(Icons.close, size: 16, color: Colors.white70),
-                          onPressed: () => setState(() => _debugLastMsg = null),
-                        ),
-                      ],
-                    ),
-                    Text(
-                      _debugLastMsg!,
-                      maxLines: 6,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontFamily: 'monospace',
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-      ],
-    ),
-  );
-}
-
-
-
-  // ===== UI =====
+  // ====== UI ======
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
@@ -1277,6 +1344,21 @@ if (!drew) {
                 label: const Text('Search city / place'),
                 onPressed: () => _openSearchSheet(PickTarget.position),
               ),
+              // REPLACE the existing button in _exitTab() with this:
+         // put a comma after the previous widget in the list, then:
+              FilledButton(
+                onPressed: exitBusy ? null : _exitToSafety,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.safety_check),
+                    const SizedBox(width: 8),
+                    Text(exitBusy ? 'Finding safest…' : 'Exit to safety now'),
+                  ],
+                ),
+              ),
+
+
               FilledButton.icon(
                 icon: const Icon(Icons.my_location),
                 label: const Text('Use my location'),
@@ -1504,7 +1586,7 @@ if (!drew) {
         ),
       );
 
-  // ===== search sheet =====
+  // ====== search sheet (Places + OSM fallback) ======
   Future<void> _openSearchSheet(PickTarget target) async {
     final controller = TextEditingController();
     List<_PlacePred> preds = const [];
@@ -1587,7 +1669,7 @@ if (!drew) {
     if (mounted) setState(() {});
   }
 
-  // ===== safe suggestions =====
+  // ====== Safe suggestions (heuristic): POIs around a base point ======
   double _haversine(double lat1, double lon1, double lat2, double lon2) {
     const R = 6371000.0;
     final dLat = (lat2 - lat1) * (3.141592653589793 / 180);
@@ -1600,66 +1682,151 @@ if (!drew) {
     return R * c;
   }
 
-  Future<List<_Poi>> _safePOIs(LatLng base) async {
-    if (_GMAPS_KEY.isNotEmpty) {
-      final types = <String>['police','hospital','university','shopping_mall','embassy','fire_station'];
-      final Map<String, _Poi> seen = {};
-      for (final t in types) {
-        try {
-          final uri = Uri.parse(
-            'https://maps.googleapis.com/maps/api/place/nearbysearch/json'
-            '?location=${base.lat},${base.lng}&radius=5000&type=$t&key=$_GMAPS_KEY',
-          );
-          final res = await http.get(uri).timeout(const Duration(seconds: 10));
-          if (res.statusCode != 200) continue;
-          final json = jsonDecode(res.body);
-          final results = (json['results'] as List?) ?? const [];
-          for (final r in results) {
-            final pid = r['place_id'] as String?;
-            final name = (r['name'] as String?) ?? t;
-            final loc = r['geometry']?['location'];
-            if (loc == null) continue;
-            final lat = (loc['lat'] as num).toDouble();
-            final lng = (loc['lng'] as num).toDouble();
-            if (!_inLebanon(lat, lng)) continue;
-            final d = _haversine(base.lat, base.lng, lat, lng);
-            final addr = (r['vicinity'] as String?) ?? '';
-            final key = pid ?? '$lat,$lng';
-            if (!seen.containsKey(key) || d < seen[key]!.distanceM) {
-              seen[key] = _Poi(
-                name: name,
-                placeId: pid,
-                loc: LatLng(lat: lat, lng: lng),
-                secondary: addr.isEmpty ? t : addr,
-                distanceM: d,
-              );
-            }
-          }
-        } catch (_) {}
-      }
-      final list = seen.values.toList()..sort((a, b) => a.distanceM.compareTo(b.distanceM));
-      return list.take(12).toList();
-    }
+Future<List<_Poi>> _safePOIs(LatLng base) async {
+  const int searchRadiusM = 8000;      // 8 km
+  const double minUsefulMeters = 25;   // don't suggest “here”
 
-    return [
-      _Poi(
-        name: 'Nearest safe (suggested)',
-        placeId: null,
-        loc: base,
-        secondary: 'Your current area',
-        distanceM: 0,
-      )
+  // ===== 1) Google Places Nearby (if key available) =====
+  if (_GMAPS_KEY.isNotEmpty) {
+    final types = <String>[
+      // keep the "safest first"; we’ll query all then dedupe by nearest
+      'police', 'hospital', 'embassy', 'fire_station', 'university', 'shopping_mall'
     ];
+    final Map<String, _Poi> seen = {};
+    for (final t in types) {
+      try {
+        final uri = Uri.parse(
+          'https://maps.googleapis.com/maps/api/place/nearbysearch/json'
+          '?location=${base.lat},${base.lng}'
+          '&radius=$searchRadiusM'
+          '&type=$t'
+          '&key=$_GMAPS_KEY'
+        );
+        final res = await http.get(uri).timeout(const Duration(seconds: 12));
+        if (res.statusCode != 200) continue;
+        final map = jsonDecode(res.body) as Map<String, dynamic>;
+        final results = (map['results'] as List?) ?? const [];
+        for (final r in results) {
+          final pid  = r['place_id'] as String?;
+          final name = (r['name'] as String?) ?? t;
+          final loc  = r['geometry']?['location'];
+          if (loc == null) continue;
+          final lat = (loc['lat'] as num).toDouble();
+          final lng = (loc['lng'] as num).toDouble();
+          final d   = _haversine(base.lat, base.lng, lat, lng);
+          if (d < minUsefulMeters) continue;
+
+          final addr = (r['vicinity'] as String?) ?? '';
+          if (!_inLebanon(lat, lng)) continue;
+
+          final key = pid ?? '$lat,$lng';
+          if (!seen.containsKey(key) || d < seen[key]!.distanceM) {
+            seen[key] = _Poi(
+              name: name,
+              placeId: pid,
+              loc: LatLng(lat: lat, lng: lng),
+              secondary: addr.isEmpty ? t : addr,
+              distanceM: d,
+            );
+          }
+        }
+      } catch (_) { /* try next type */ }
+    }
+    final list = seen.values.toList()..sort((a, b) => a.distanceM.compareTo(b.distanceM));
+    if (list.isNotEmpty) return list.take(12).toList();
   }
+
+  // ===== 2) OSM Overpass fallback (no key required) =====
+  // We search for key amenities within a radius around the base point.
+  try {
+    // Overpass API query: nodes/ways/relations with the given amenities inside a circle
+    final amenities = [
+      'police','hospital','fire_station','embassy','university',
+      'clinic','doctors','pharmacy','townhall','shelter'
+    ];
+    final amenityFilter = amenities.map((a) => 'node["amenity"="$a"](around:$searchRadiusM,${base.lat},${base.lng});'
+                                             'way["amenity"="$a"](around:$searchRadiusM,${base.lat},${base.lng});'
+                                             'relation["amenity"="$a"](around:$searchRadiusM,${base.lat},${base.lng});').join('');
+
+    final overpassQL = '[out:json][timeout:25];($amenityFilter);out center 100;'; // out with center for ways/relations
+
+    final uri = Uri.parse('https://overpass-api.de/api/interpreter');
+    final res = await http.post(
+      uri,
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        'User-Agent': 'safesteps-app'
+      },
+      body: 'data=${Uri.encodeComponent(overpassQL)}',
+    ).timeout(const Duration(seconds: 20));
+
+    if (res.statusCode == 200) {
+      final j = jsonDecode(res.body) as Map<String, dynamic>;
+      final elements = (j['elements'] as List?) ?? const [];
+      final Map<String, _Poi> seen = {};
+
+      for (final e in elements) {
+        double? lat, lng;
+        if (e['type'] == 'node') {
+          lat = (e['lat'] as num?)?.toDouble();
+          lng = (e['lon'] as num?)?.toDouble();
+        } else if (e['type'] == 'way' || e['type'] == 'relation') {
+          // when we request "out center", Overpass gives a "center": {lat,lon}
+          final center = e['center'];
+          lat = (center?['lat'] as num?)?.toDouble();
+          lng = (center?['lon'] as num?)?.toDouble();
+        }
+        if (lat == null || lng == null) continue;
+        if (!_inLebanon(lat, lng)) continue;
+
+        final tags = (e['tags'] as Map?) ?? const {};
+        final name = (tags['name'] as String?) ??
+                     (tags['amenity'] as String?) ??
+                     'Safe place';
+        final secondary = [
+          if (tags['amenity'] is String) tags['amenity'],
+          if (tags['addr:street'] is String) tags['addr:street'],
+          if (tags['addr:city'] is String) tags['addr:city'],
+        ].whereType<String>().where((s) => s.trim().isNotEmpty).join(' • ');
+
+        final d = _haversine(base.lat, base.lng, lat, lng);
+        if (d < minUsefulMeters) continue;
+
+        // Dedup by coordinate; prefer nearest
+        final key = '$lat,$lng';
+        if (!seen.containsKey(key) || d < seen[key]!.distanceM) {
+          seen[key] = _Poi(
+            name: name,
+            placeId: null,
+            loc: LatLng(lat: lat, lng: lng),
+            secondary: secondary.isEmpty ? 'OSM' : secondary,
+            distanceM: d,
+          );
+        }
+      }
+
+      final list = seen.values.toList()..sort((a, b) => a.distanceM.compareTo(b.distanceM));
+      if (list.isNotEmpty) return list.take(12).toList();
+    }
+  } catch (_) { /* ignore */ }
+
+  // If both sources fail → no suggestions (the UI will show a message)
+  return const <_Poi>[];
+}
+
+
+
 
   Future<void> _openSafeSuggestionsAround(LatLng base) async {
     final ctx = context;
     final items = await _safePOIs(base);
-    if (items.isEmpty) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('No nearby suggestions')));
-      return;
-    }
+   if (items.isEmpty) {
+  if (!mounted) return;
+  ScaffoldMessenger.of(ctx).showSnackBar(
+    const SnackBar(content: Text('No nearby safe places found. Try “Exit to safety now”.')),
+  );
+  return;
+}
 
     final chosen = await showModalBottomSheet<_Poi>(
       context: ctx,
