@@ -72,7 +72,12 @@ flutter run -d chrome   # or your device
 To run the application:
 
 cd frontend/safesteps_app
-Then run the following command: flutter run -d chrome --web-port 8000   --dart-define=WEB_MAPS_ENABLED=true    --dart-define=API_BASE_URL=http://51.20.9.164:8000 --dart-define=API_PREFIX=
+Then run the following command: flutter run -d chrome --web-port 8000 `
+  --dart-define=WEB_MAPS_ENABLED=true `
+  --dart-define=API_BASE_URL=http://51.20.9.164:8000 `
+  --dart-define=API_PREFIX= `
+  --dart-define=GEOCODING_API_KEY=AIzaSyCvc1IvlTa58E0UwitYeXHLWQLb2Ht5jpE `
+  --dart-define=ORS_API_KEY=eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImJjZWYwNTc1YzgwNzRiZTRiOWI1ZjU3ZmE4MWFkMmVkIiwiaCI6Im11cm11cjY0In0=
 
 
 ---
